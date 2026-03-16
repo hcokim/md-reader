@@ -3,7 +3,7 @@ import { render } from './markdown.ts'
 const landing = document.getElementById('landing')!
 const reader = document.getElementById('reader')!
 const content = document.getElementById('content')!
-const controls = document.getElementById('controls')!
+const settingsToggle = document.getElementById('settings-toggle')!
 const fileInput = document.getElementById('file-input') as HTMLInputElement
 const openLink = document.getElementById('open-link')!
 
@@ -57,10 +57,6 @@ async function loadFile(file: File) {
 function showReader(fileName: string) {
   landing.classList.add('hidden')
   reader.classList.remove('hidden')
-  controls.classList.remove('hidden')
+  settingsToggle.classList.remove('hidden')
   document.title = fileName
-}
-
-export function openFilePicker() {
-  fileInput.click()
 }

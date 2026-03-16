@@ -17,6 +17,7 @@ body {
   line-height: var(--line-height);
   color: var(--fg);
   background: var(--bg);
+  letter-spacing: var(--letter-spacing, normal);
   transition: background 0.2s ease, color 0.2s ease;
   -webkit-font-smoothing: antialiased;
 }
@@ -69,6 +70,7 @@ body[data-theme="sans"] {
   --font-body: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-size: 16px;
   --line-height: 1.65;
+  --letter-spacing: -0.015em;
   --bg: #fafafa;
   --fg: #171717;
   --fg-muted: #737373;
@@ -105,6 +107,81 @@ body[data-theme="mono"] {
   --controls-bg: rgba(26, 26, 46, 0.92);
   --controls-border: rgba(255, 255, 255, 0.08);
   --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* --- Dark mode overrides --- */
+
+body[data-color-mode="dark"][data-theme="github"] {
+  --bg: #0d1117;
+  --fg: #e6edf3;
+  --fg-muted: #8b949e;
+  --link: #58a6ff;
+  --border: #30363d;
+  --border-heavy: #30363d;
+  --code-bg: #161b22;
+  --code-fg: #e6edf3;
+  --blockquote-border: #30363d;
+  --blockquote-fg: #8b949e;
+  --table-stripe: #161b22;
+  --heading-fg: #f0f6fc;
+  --controls-bg: rgba(13, 17, 23, 0.88);
+  --controls-border: rgba(255, 255, 255, 0.08);
+  --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+body[data-color-mode="dark"][data-theme="serif"] {
+  --bg: #1c1a17;
+  --fg: #d4cfc8;
+  --fg-muted: #9a9488;
+  --link: #d4a574;
+  --border: #332f28;
+  --border-heavy: #443e34;
+  --code-bg: #141210;
+  --code-fg: #d4cfc8;
+  --blockquote-border: #443e34;
+  --blockquote-fg: #9a9488;
+  --table-stripe: #1f1d19;
+  --heading-fg: #ebe6de;
+  --controls-bg: rgba(28, 26, 23, 0.9);
+  --controls-border: rgba(255, 255, 255, 0.08);
+  --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+body[data-color-mode="dark"][data-theme="sans"] {
+  --bg: #111111;
+  --fg: #ececec;
+  --fg-muted: #a0a0a0;
+  --link: #6b9eff;
+  --border: #2a2a2a;
+  --border-heavy: #3a3a3a;
+  --code-bg: #1a1a1a;
+  --code-fg: #ececec;
+  --blockquote-border: #3a3a3a;
+  --blockquote-fg: #a0a0a0;
+  --table-stripe: #161616;
+  --heading-fg: #f5f5f5;
+  --controls-bg: rgba(17, 17, 17, 0.9);
+  --controls-border: rgba(255, 255, 255, 0.08);
+  --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Mono is already dark — make it lighter in light mode */
+body[data-color-mode="light"][data-theme="mono"] {
+  --bg: #f5f5f0;
+  --fg: #2a2a3c;
+  --fg-muted: #6e6e82;
+  --link: #2563eb;
+  --border: #d8d8e0;
+  --border-heavy: #c0c0cc;
+  --code-bg: #eaeae4;
+  --code-fg: #2a2a3c;
+  --blockquote-border: #c0c0cc;
+  --blockquote-fg: #6e6e82;
+  --table-stripe: #ededea;
+  --heading-fg: #1a1a2e;
+  --controls-bg: rgba(245, 245, 240, 0.9);
+  --controls-border: rgba(0, 0, 0, 0.1);
+  --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 /* --- Width --- */
@@ -197,42 +274,77 @@ body.drag-over .landing-icon {
   transition: max-width 0.3s ease;
 }
 
-/* --- Control Bar --- */
+/* --- Settings Toggle Button --- */
 
-#controls {
+#settings-toggle {
   position: fixed;
   top: 16px;
   right: 16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--controls-border);
+  background: var(--controls-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: var(--controls-shadow);
+  color: var(--fg-muted);
+  cursor: pointer;
   display: flex;
   align-items: center;
+  justify-content: center;
+  padding: 0;
+  z-index: 101;
+  opacity: 0.6;
+  transition: opacity 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+#settings-toggle:hover {
+  opacity: 1;
+  color: var(--fg);
+}
+
+#settings-toggle.active {
+  opacity: 1;
+  color: var(--fg);
+}
+
+/* --- Settings Panel --- */
+
+#settings-panel {
+  position: fixed;
+  top: 60px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  padding: 8px 16px;
+  padding: 14px 16px;
   background: var(--controls-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--controls-border);
-  border-radius: 999px;
+  border-radius: 12px;
   box-shadow: var(--controls-shadow);
-  opacity: 0.7;
-  transition: opacity 0.2s ease;
   z-index: 100;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 13px;
+  animation: settings-in 0.15s ease;
 }
 
-#controls:hover {
-  opacity: 1;
+@keyframes settings-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .control-group {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  gap: 3px;
 }
 
 .control-group label {
   color: var(--fg-muted);
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -252,35 +364,6 @@ body.drag-over .landing-icon {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpath d='M3 4.5l3 3 3-3'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 6px center;
-}
-
-#open-btn {
-  appearance: none;
-  border: 1px solid var(--controls-border);
-  border-radius: 6px;
-  padding: 4px 12px;
-  font-size: 13px;
-  color: var(--fg);
-  background: transparent;
-  cursor: pointer;
-  font-family: inherit;
-  white-space: nowrap;
-}
-
-#open-btn:hover {
-  background: var(--code-bg);
-}
-
-/* Mobile controls */
-@media (max-width: 640px) {
-  #controls {
-    top: auto;
-    bottom: 12px;
-    right: 12px;
-    left: 12px;
-    justify-content: center;
-    border-radius: 16px;
-  }
 }
 
 /* ============================================================
@@ -358,6 +441,23 @@ body.drag-over .landing-icon {
 /* Shiki dual-theme support */
 #content pre.shiki {
   background-color: var(--code-bg) !important;
+}
+
+#content pre.shiki span {
+  color: var(--shiki-light) !important;
+}
+
+body[data-color-mode="dark"] #content pre.shiki span {
+  color: var(--shiki-dark) !important;
+}
+
+/* Mono theme: default (no color-mode override) uses dark shiki */
+body[data-theme="mono"] #content pre.shiki span {
+  color: var(--shiki-dark) !important;
+}
+
+body[data-color-mode="light"][data-theme="mono"] #content pre.shiki span {
+  color: var(--shiki-light) !important;
 }
 
 /* Blockquotes */
@@ -460,7 +560,8 @@ body.drag-over .landing-icon {
 /* --- Print styles --- */
 
 @media print {
-  #controls {
+  #settings-toggle,
+  #settings-panel {
     display: none !important;
   }
 
