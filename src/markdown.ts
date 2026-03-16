@@ -37,6 +37,7 @@ export async function initMarkdown(): Promise<void> {
       import('shiki/langs/swift.mjs'),
       import('shiki/langs/kotlin.mjs'),
       import('shiki/langs/shell.mjs'),
+      import('shiki/langs/powershell.mjs'),
       import('shiki/langs/toml.mjs'),
       import('shiki/langs/xml.mjs'),
       import('shiki/langs/diff.mjs'),
