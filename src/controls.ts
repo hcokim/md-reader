@@ -11,8 +11,7 @@ export function initControls(initialTheme: Theme, initialWidth: Width, initialCo
   widthSelect.value = initialWidth
   colorModeSelect.value = initialColorMode
 
-  // Toggle panel
-  toggle.addEventListener('click', (e) => {
+  const handleToggleClick = (e: MouseEvent) => {
     e.stopPropagation()
     const open = !panel.classList.contains('hidden')
     if (open) {
@@ -22,25 +21,38 @@ export function initControls(initialTheme: Theme, initialWidth: Width, initialCo
       panel.classList.remove('hidden')
       toggle.classList.add('active')
     }
-  })
+  }
 
-  // Close panel when clicking outside
-  document.addEventListener('click', (e) => {
+  const handleDocumentClick = (e: MouseEvent) => {
     if (!panel.classList.contains('hidden') && !panel.contains(e.target as Node) && e.target !== toggle) {
       panel.classList.add('hidden')
       toggle.classList.remove('active')
     }
-  })
+  }
 
-  themeSelect.addEventListener('change', () => {
+  const handleThemeChange = () => {
     setTheme(themeSelect.value as Theme)
-  })
+  }
 
-  widthSelect.addEventListener('change', () => {
+  const handleWidthChange = () => {
     setWidth(widthSelect.value as Width)
-  })
+  }
 
-  colorModeSelect.addEventListener('change', () => {
+  const handleColorModeChange = () => {
     setColorMode(colorModeSelect.value as ColorMode)
-  })
+  }
+
+  toggle.addEventListener('click', handleToggleClick)
+  document.addEventListener('click', handleDocumentClick)
+  themeSelect.addEventListener('change', handleThemeChange)
+  widthSelect.addEventListener('change', handleWidthChange)
+  colorModeSelect.addEventListener('change', handleColorModeChange)
+
+  return () => {
+    toggle.removeEventListener('click', handleToggleClick)
+    document.removeEventListener('click', handleDocumentClick)
+    themeSelect.removeEventListener('change', handleThemeChange)
+    widthSelect.removeEventListener('change', handleWidthChange)
+    colorModeSelect.removeEventListener('change', handleColorModeChange)
+  }
 }

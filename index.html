@@ -20,12 +20,18 @@
         <h1 class="landing-title">Drop a Markdown file here</h1>
         <p class="landing-sub">or <a href="#" id="open-link">click to open</a></p>
       </div>
-      <input type="file" id="file-input" accept=".md,.markdown,.mdx,.txt" hidden />
+      <input type="file" id="file-input" accept=".md,.markdown,.mdx,.txt" multiple hidden />
     </div>
 
     <!-- State B: Reader -->
     <div id="reader" class="hidden">
-      <div id="content"></div>
+      <aside id="file-sidebar" class="hidden" aria-label="Loaded files">
+        <div class="sidebar-header">Session files</div>
+        <div id="file-list"></div>
+      </aside>
+      <div id="reader-main">
+        <div id="content"></div>
+      </div>
     </div>
 
     <!-- Settings toggle + panel -->

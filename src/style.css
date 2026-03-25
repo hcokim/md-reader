@@ -264,14 +264,107 @@ body.drag-over .landing-icon {
 /* --- Reader --- */
 
 #reader {
-  padding: 48px 24px 96px;
   min-height: 100vh;
   min-height: 100dvh;
 }
 
+#reader.has-sidebar {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+}
+
+#file-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  padding: 24px 16px;
+  border-right: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 94%, var(--fg) 6%);
+  overflow-y: auto;
+}
+
+.sidebar-header {
+  margin-bottom: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+#file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.file-tab {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-tab:hover {
+  background: color-mix(in srgb, var(--link) 8%, var(--bg));
+  border-color: color-mix(in srgb, var(--link) 40%, var(--border));
+}
+
+.file-tab.active {
+  background: color-mix(in srgb, var(--link) 14%, var(--bg));
+  border-color: color-mix(in srgb, var(--link) 55%, var(--border));
+  color: var(--heading-fg);
+}
+
+#reader-main {
+  min-width: 0;
+  padding: 48px 24px 96px;
+}
+
 #content {
+  width: 100%;
+  min-width: 0;
   margin: 0 auto;
   transition: max-width 0.3s ease;
+}
+
+@media (max-width: 900px) {
+  #reader.has-sidebar {
+    grid-template-columns: 1fr;
+  }
+
+  #file-sidebar {
+    position: static;
+    height: auto;
+    padding: 20px 16px 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+  }
+
+  #file-list {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 16px;
+  }
+
+  .file-tab {
+    flex: 0 0 220px;
+  }
+
+  #reader-main {
+    padding-top: 24px;
+  }
 }
 
 /* --- Settings Toggle Button --- */

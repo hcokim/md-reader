@@ -3,55 +3,146 @@ import { render } from './markdown.ts'
 const landing = document.getElementById('landing')!
 const reader = document.getElementById('reader')!
 const content = document.getElementById('content')!
+const fileSidebar = document.getElementById('file-sidebar')!
+const fileList = document.getElementById('file-list')!
 const settingsToggle = document.getElementById('settings-toggle')!
 const fileInput = document.getElementById('file-input') as HTMLInputElement
 const openLink = document.getElementById('open-link')!
 
+type SessionFile = {
+  id: string
+  name: string
+  text: string
+}
+
+const ACCEPTED_EXTENSIONS = ['.md', '.markdown', '.mdx', '.txt']
+
 let markdownReady: Promise<void>
+let sessionFiles: SessionFile[] = []
+let activeFileId: string | null = null
+let fileCounter = 0
 
 export function initDropzone(ready: Promise<void>) {
   markdownReady = ready
 
-  // Click to open
-  openLink.addEventListener('click', (e) => {
+  const handleOpenClick = (e: MouseEvent) => {
     e.preventDefault()
     fileInput.click()
-  })
+  }
 
-  fileInput.addEventListener('change', () => {
-    const file = fileInput.files?.[0]
-    if (file) loadFile(file)
-  })
+  const handleInputChange = () => {
+    const files = Array.from(fileInput.files ?? [])
+    if (files.length > 0) {
+      void loadFiles(files)
+    }
+  }
 
-  // Drag & drop on entire body
-  document.body.addEventListener('dragover', (e) => {
+  const handleDragOver = (e: DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
     document.body.classList.add('drag-over')
-  })
+  }
 
-  document.body.addEventListener('dragleave', (e) => {
+  const handleDragLeave = (e: DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
     if (e.target === document.body || e.target === landing) {
       document.body.classList.remove('drag-over')
     }
-  })
+  }
 
-  document.body.addEventListener('drop', (e) => {
+  const handleDrop = (e: DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
     document.body.classList.remove('drag-over')
-    const file = e.dataTransfer?.files[0]
-    if (file) loadFile(file)
-  })
+    const files = Array.from(e.dataTransfer?.files ?? []).filter(isReadableMarkdownFile)
+    if (files.length > 0) {
+      void loadFiles(files)
+    }
+  }
+
+  openLink.addEventListener('click', handleOpenClick)
+  fileInput.addEventListener('change', handleInputChange)
+  document.body.addEventListener('dragover', handleDragOver)
+  document.body.addEventListener('dragleave', handleDragLeave)
+  document.body.addEventListener('drop', handleDrop)
+
+  return () => {
+    openLink.removeEventListener('click', handleOpenClick)
+    fileInput.removeEventListener('change', handleInputChange)
+    document.body.removeEventListener('dragover', handleDragOver)
+    document.body.removeEventListener('dragleave', handleDragLeave)
+    document.body.removeEventListener('drop', handleDrop)
+  }
 }
 
-async function loadFile(file: File) {
-  const text = await file.text()
+async function loadFiles(files: File[]) {
+  const readableFiles = files.filter(isReadableMarkdownFile)
+  if (readableFiles.length === 0) return
+
   await markdownReady
-  content.innerHTML = render(text)
+
+  const loadedFiles = await Promise.all(readableFiles.map(async (file) => ({
+    id: buildFileId(),
+    name: file.name,
+    text: await file.text(),
+  })))
+
+  sessionFiles = [...sessionFiles, ...loadedFiles]
+  renderSidebar()
+  setActiveFile(loadedFiles[0].id)
+  fileInput.value = ''
+}
+
+function isReadableMarkdownFile(file: File) {
+  const lowerName = file.name.toLowerCase()
+  return ACCEPTED_EXTENSIONS.some((extension) => lowerName.endsWith(extension))
+}
+
+function buildFileId() {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID()
+  }
+
+  fileCounter += 1
+  return `md-file-${Date.now()}-${fileCounter}`
+}
+
+function setActiveFile(fileId: string) {
+  activeFileId = fileId
+  const file = sessionFiles.find((entry) => entry.id === fileId)
+  if (!file) return
+
+  content.innerHTML = render(file.text)
   showReader(file.name)
+  renderSidebar()
+}
+
+function renderSidebar() {
+  const hasMultipleFiles = sessionFiles.length > 1
+  reader.classList.toggle('has-sidebar', hasMultipleFiles)
+  fileSidebar.classList.toggle('hidden', !hasMultipleFiles)
+
+  fileList.innerHTML = ''
+  if (!hasMultipleFiles) return
+
+  for (const file of sessionFiles) {
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'file-tab'
+    button.textContent = file.name
+    button.title = file.name
+
+    if (file.id === activeFileId) {
+      button.classList.add('active')
+    }
+
+    button.addEventListener('click', () => {
+      setActiveFile(file.id)
+    })
+
+    fileList.appendChild(button)
+  }
 }
 
 function showReader(fileName: string) {

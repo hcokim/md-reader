@@ -4,7 +4,15 @@ import { initDropzone } from './dropzone.ts'
 import { initControls } from './controls.ts'
 import { restoreSettings } from './themes.ts'
 
-const { theme, width, colorMode } = restoreSettings()
+const { theme, width, colorMode, cleanup: cleanupTheme } = restoreSettings()
 const markdownReady = initMarkdown()
-initDropzone(markdownReady)
-initControls(theme, width, colorMode)
+const cleanupDropzone = initDropzone(markdownReady)
+const cleanupControls = initControls(theme, width, colorMode)
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    cleanupDropzone()
+    cleanupControls()
+    cleanupTheme()
+  })
+}

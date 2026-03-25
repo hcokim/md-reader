@@ -52,12 +52,20 @@ export function restoreSettings() {
   document.body.setAttribute('data-width', width)
   applyResolvedColorMode(colorMode)
 
-  // Listen for system preference changes when in auto mode
-  darkMq.addEventListener('change', () => {
+  const handleSystemColorChange = () => {
     if (getColorMode() === 'auto') {
       applyResolvedColorMode('auto')
     }
-  })
+  }
 
-  return { theme, width, colorMode }
+  darkMq.addEventListener('change', handleSystemColorChange)
+
+  return {
+    theme,
+    width,
+    colorMode,
+    cleanup: () => {
+      darkMq.removeEventListener('change', handleSystemColorChange)
+    },
+  }
 }
