@@ -298,7 +298,39 @@ body.drag-over .landing-icon {
   pointer-events: none;
 }
 
-#file-list {
+#sidebar-switcher {
+  display: inline-flex;
+  gap: 8px;
+  padding: 4px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg) 92%, var(--fg) 8%);
+}
+
+.sidebar-tab {
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  padding: 8px 12px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.sidebar-tab:hover {
+  color: var(--fg);
+}
+
+.sidebar-tab.active {
+  background: color-mix(in srgb, var(--link) 16%, var(--bg));
+  color: var(--heading-fg);
+}
+
+#file-list,
+#outline-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -330,6 +362,34 @@ body.drag-over .landing-icon {
   border-color: color-mix(in srgb, var(--link) 55%, var(--border));
   color: var(--heading-fg);
 }
+
+.outline-item {
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg-muted);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.outline-item:hover {
+  background: color-mix(in srgb, var(--link) 8%, var(--bg));
+  color: var(--fg);
+}
+
+.outline-item.level-1 { padding-left: 10px; font-weight: 700; color: var(--heading-fg); }
+.outline-item.level-2 { padding-left: 22px; }
+.outline-item.level-3 { padding-left: 34px; }
+.outline-item.level-4 { padding-left: 46px; }
+.outline-item.level-5 { padding-left: 58px; }
+.outline-item.level-6 { padding-left: 70px; }
 
 #reader-main {
   min-width: 0;
@@ -366,13 +426,19 @@ body.drag-over .landing-icon {
     border-bottom: 0;
   }
 
-  #file-list {
+  #sidebar-switcher {
+    margin-bottom: 12px;
+  }
+
+  #file-list,
+  #outline-list {
     flex-direction: row;
     overflow-x: auto;
     padding-bottom: 16px;
   }
 
-  .file-tab {
+  .file-tab,
+  .outline-item {
     flex: 0 0 220px;
   }
 

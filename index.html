@@ -25,8 +25,13 @@
 
     <!-- State B: Reader -->
     <div id="reader" class="hidden">
-      <aside id="file-sidebar" class="hidden" aria-label="Loaded files">
+      <aside id="file-sidebar" class="hidden" aria-label="Navigation">
+        <div id="sidebar-switcher" class="hidden">
+          <button id="sidebar-files-tab" class="sidebar-tab" type="button">Files</button>
+          <button id="sidebar-outline-tab" class="sidebar-tab" type="button">Outline</button>
+        </div>
         <div id="file-list"></div>
+        <div id="outline-list" class="hidden"></div>
       </aside>
       <div id="reader-main">
         <div id="content"></div>

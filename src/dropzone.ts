@@ -4,7 +4,11 @@ const landing = document.getElementById('landing')!
 const reader = document.getElementById('reader')!
 const content = document.getElementById('content')!
 const fileSidebar = document.getElementById('file-sidebar')!
+const sidebarSwitcher = document.getElementById('sidebar-switcher')!
+const sidebarFilesTab = document.getElementById('sidebar-files-tab') as HTMLButtonElement
+const sidebarOutlineTab = document.getElementById('sidebar-outline-tab') as HTMLButtonElement
 const fileList = document.getElementById('file-list')!
+const outlineList = document.getElementById('outline-list')!
 const sidebarToggle = document.getElementById('sidebar-toggle') as HTMLButtonElement
 const settingsToggle = document.getElementById('settings-toggle')!
 const fileInput = document.getElementById('file-input') as HTMLInputElement
@@ -16,11 +20,21 @@ type SessionFile = {
   text: string
 }
 
+type OutlineItem = {
+  id: string
+  title: string
+  level: number
+}
+
+type SidebarView = 'files' | 'outline'
+
 const ACCEPTED_EXTENSIONS = ['.md', '.markdown', '.mdx', '.txt']
 
 let markdownReady: Promise<void>
 let sessionFiles: SessionFile[] = []
 let activeFileId: string | null = null
+let outlineItems: OutlineItem[] = []
+let sidebarView: SidebarView = 'files'
 let isSidebarCollapsed = false
 let fileCounter = 0
 
@@ -67,8 +81,19 @@ export function initDropzone(ready: Promise<void>) {
     toggleSidebar()
   }
 
+  const handleFilesTabClick = () => {
+    sidebarView = 'files'
+    renderSidebar()
+  }
+
+  const handleOutlineTabClick = () => {
+    sidebarView = 'outline'
+    renderSidebar()
+  }
+
   const handleShortcut = (e: KeyboardEvent) => {
-    if (sessionFiles.length <= 1) return
+    const hasSidebarContent = sessionFiles.length > 1 || outlineItems.length > 0
+    if (!hasSidebarContent) return
     if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
     if (isTypingTarget(e.target)) return
 
@@ -82,6 +107,8 @@ export function initDropzone(ready: Promise<void>) {
   document.body.addEventListener('dragleave', handleDragLeave)
   document.body.addEventListener('drop', handleDrop)
   sidebarToggle.addEventListener('click', handleSidebarToggle)
+  sidebarFilesTab.addEventListener('click', handleFilesTabClick)
+  sidebarOutlineTab.addEventListener('click', handleOutlineTabClick)
   document.addEventListener('keydown', handleShortcut)
 
   return () => {
@@ -91,6 +118,8 @@ export function initDropzone(ready: Promise<void>) {
     document.body.removeEventListener('dragleave', handleDragLeave)
     document.body.removeEventListener('drop', handleDrop)
     sidebarToggle.removeEventListener('click', handleSidebarToggle)
+    sidebarFilesTab.removeEventListener('click', handleFilesTabClick)
+    sidebarOutlineTab.removeEventListener('click', handleOutlineTabClick)
     document.removeEventListener('keydown', handleShortcut)
   }
 }
@@ -145,29 +174,98 @@ function setActiveFile(fileId: string) {
   if (!file) return
 
   content.innerHTML = render(file.text)
+  outlineItems = buildOutline()
+
+  const hasMultipleFiles = sessionFiles.length > 1
+  if (!hasMultipleFiles && outlineItems.length > 0) {
+    sidebarView = 'outline'
+  }
+
   showReader(file.name)
   renderSidebar()
 }
 
+function buildOutline(): OutlineItem[] {
+  const headings = Array.from(content.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6'))
+  const usedIds = new Set<string>()
+
+  return headings.map((heading, index) => {
+    const title = heading.textContent?.trim() || `Section ${index + 1}`
+    const level = Number(heading.tagName.slice(1))
+    const baseId = slugify(title) || `section-${index + 1}`
+    const id = getUniqueId(baseId, usedIds)
+    heading.id = id
+    return { id, title, level }
+  })
+}
+
+function slugify(text: string) {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+}
+
+function getUniqueId(baseId: string, usedIds: Set<string>) {
+  let candidate = baseId
+  let counter = 2
+
+  while (usedIds.has(candidate) || document.getElementById(candidate)) {
+    candidate = `${baseId}-${counter}`
+    counter += 1
+  }
+
+  usedIds.add(candidate)
+  return candidate
+}
+
 function toggleSidebar() {
-  if (sessionFiles.length <= 1) return
+  const hasSidebarContent = sessionFiles.length > 1 || outlineItems.length > 0
+  if (!hasSidebarContent) return
   isSidebarCollapsed = !isSidebarCollapsed
   renderSidebar()
 }
 
 function renderSidebar() {
   const hasMultipleFiles = sessionFiles.length > 1
-  reader.classList.toggle('has-sidebar', hasMultipleFiles)
-  reader.classList.toggle('sidebar-collapsed', hasMultipleFiles && isSidebarCollapsed)
-  fileSidebar.classList.toggle('hidden', !hasMultipleFiles)
-  sidebarToggle.classList.toggle('hidden', !hasMultipleFiles)
+  const hasOutline = outlineItems.length > 0
+  const hasSidebarContent = hasMultipleFiles || hasOutline
+  const availableViews: SidebarView[] = []
 
-  if (hasMultipleFiles) {
-    sidebarToggle.textContent = isSidebarCollapsed ? 'Show files' : 'Hide files'
-    sidebarToggle.setAttribute('aria-label', isSidebarCollapsed ? 'Show file sidebar' : 'Hide file sidebar')
+  if (hasMultipleFiles) availableViews.push('files')
+  if (hasOutline) availableViews.push('outline')
+
+  if (!availableViews.includes(sidebarView)) {
+    sidebarView = hasOutline ? 'outline' : 'files'
+  }
+
+  reader.classList.toggle('has-sidebar', hasSidebarContent)
+  reader.classList.toggle('sidebar-collapsed', hasSidebarContent && isSidebarCollapsed)
+  fileSidebar.classList.toggle('hidden', !hasSidebarContent)
+  sidebarToggle.classList.toggle('hidden', !hasSidebarContent)
+  sidebarSwitcher.classList.toggle('hidden', availableViews.length < 2)
+
+  if (hasSidebarContent) {
+    sidebarToggle.textContent = isSidebarCollapsed ? 'Show nav' : 'Hide nav'
+    sidebarToggle.setAttribute('aria-label', isSidebarCollapsed ? 'Show navigation sidebar' : 'Hide navigation sidebar')
     sidebarToggle.setAttribute('aria-expanded', String(!isSidebarCollapsed))
   }
 
+  sidebarFilesTab.classList.toggle('hidden', !hasMultipleFiles)
+  sidebarOutlineTab.classList.toggle('hidden', !hasOutline)
+  sidebarFilesTab.classList.toggle('active', sidebarView === 'files')
+  sidebarOutlineTab.classList.toggle('active', sidebarView === 'outline')
+
+  fileList.classList.toggle('hidden', !(hasMultipleFiles && sidebarView === 'files'))
+  outlineList.classList.toggle('hidden', !(hasOutline && sidebarView === 'outline'))
+
+  renderFileList(hasMultipleFiles)
+  renderOutline(hasOutline)
+}
+
+function renderFileList(hasMultipleFiles: boolean) {
   fileList.innerHTML = ''
   if (!hasMultipleFiles) return
 
@@ -187,6 +285,24 @@ function renderSidebar() {
     })
 
     fileList.appendChild(button)
+  }
+}
+
+function renderOutline(hasOutline: boolean) {
+  outlineList.innerHTML = ''
+  if (!hasOutline) return
+
+  for (const item of outlineItems) {
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = `outline-item level-${Math.min(item.level, 6)}`
+    button.textContent = item.title
+    button.title = item.title
+    button.addEventListener('click', () => {
+      const heading = document.getElementById(item.id)
+      heading?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+    outlineList.appendChild(button)
   }
 }
 
