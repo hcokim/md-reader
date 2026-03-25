@@ -5,6 +5,7 @@ const reader = document.getElementById('reader')!
 const content = document.getElementById('content')!
 const fileSidebar = document.getElementById('file-sidebar')!
 const fileList = document.getElementById('file-list')!
+const sidebarToggle = document.getElementById('sidebar-toggle') as HTMLButtonElement
 const settingsToggle = document.getElementById('settings-toggle')!
 const fileInput = document.getElementById('file-input') as HTMLInputElement
 const openLink = document.getElementById('open-link')!
@@ -20,6 +21,7 @@ const ACCEPTED_EXTENSIONS = ['.md', '.markdown', '.mdx', '.txt']
 let markdownReady: Promise<void>
 let sessionFiles: SessionFile[] = []
 let activeFileId: string | null = null
+let isSidebarCollapsed = false
 let fileCounter = 0
 
 export function initDropzone(ready: Promise<void>) {
@@ -61,11 +63,26 @@ export function initDropzone(ready: Promise<void>) {
     }
   }
 
+  const handleSidebarToggle = () => {
+    toggleSidebar()
+  }
+
+  const handleShortcut = (e: KeyboardEvent) => {
+    if (sessionFiles.length <= 1) return
+    if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
+    if (isTypingTarget(e.target)) return
+
+    e.preventDefault()
+    toggleSidebar()
+  }
+
   openLink.addEventListener('click', handleOpenClick)
   fileInput.addEventListener('change', handleInputChange)
   document.body.addEventListener('dragover', handleDragOver)
   document.body.addEventListener('dragleave', handleDragLeave)
   document.body.addEventListener('drop', handleDrop)
+  sidebarToggle.addEventListener('click', handleSidebarToggle)
+  document.addEventListener('keydown', handleShortcut)
 
   return () => {
     openLink.removeEventListener('click', handleOpenClick)
@@ -73,6 +90,8 @@ export function initDropzone(ready: Promise<void>) {
     document.body.removeEventListener('dragover', handleDragOver)
     document.body.removeEventListener('dragleave', handleDragLeave)
     document.body.removeEventListener('drop', handleDrop)
+    sidebarToggle.removeEventListener('click', handleSidebarToggle)
+    document.removeEventListener('keydown', handleShortcut)
   }
 }
 
@@ -89,6 +108,11 @@ async function loadFiles(files: File[]) {
   })))
 
   sessionFiles = [...sessionFiles, ...loadedFiles]
+
+  if (sessionFiles.length > 1 && activeFileId !== null) {
+    isSidebarCollapsed = false
+  }
+
   renderSidebar()
   setActiveFile(loadedFiles[0].id)
   fileInput.value = ''
@@ -97,6 +121,13 @@ async function loadFiles(files: File[]) {
 function isReadableMarkdownFile(file: File) {
   const lowerName = file.name.toLowerCase()
   return ACCEPTED_EXTENSIONS.some((extension) => lowerName.endsWith(extension))
+}
+
+function isTypingTarget(target: EventTarget | null) {
+  const element = target as HTMLElement | null
+  if (!element) return false
+  const tagName = element.tagName
+  return element.isContentEditable || tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT'
 }
 
 function buildFileId() {
@@ -118,10 +149,24 @@ function setActiveFile(fileId: string) {
   renderSidebar()
 }
 
+function toggleSidebar() {
+  if (sessionFiles.length <= 1) return
+  isSidebarCollapsed = !isSidebarCollapsed
+  renderSidebar()
+}
+
 function renderSidebar() {
   const hasMultipleFiles = sessionFiles.length > 1
   reader.classList.toggle('has-sidebar', hasMultipleFiles)
+  reader.classList.toggle('sidebar-collapsed', hasMultipleFiles && isSidebarCollapsed)
   fileSidebar.classList.toggle('hidden', !hasMultipleFiles)
+  sidebarToggle.classList.toggle('hidden', !hasMultipleFiles)
+
+  if (hasMultipleFiles) {
+    sidebarToggle.textContent = isSidebarCollapsed ? 'Show files' : 'Hide files'
+    sidebarToggle.setAttribute('aria-label', isSidebarCollapsed ? 'Show file sidebar' : 'Hide file sidebar')
+    sidebarToggle.setAttribute('aria-expanded', String(!isSidebarCollapsed))
+  }
 
   fileList.innerHTML = ''
   if (!hasMultipleFiles) return

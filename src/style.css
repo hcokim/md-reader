@@ -271,6 +271,11 @@ body.drag-over .landing-icon {
 #reader.has-sidebar {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
+  transition: grid-template-columns 0.24s ease;
+}
+
+#reader.has-sidebar.sidebar-collapsed {
+  grid-template-columns: 0 minmax(0, 1fr);
 }
 
 #file-sidebar {
@@ -282,15 +287,15 @@ body.drag-over .landing-icon {
   border-right: 1px solid var(--border);
   background: color-mix(in srgb, var(--bg) 94%, var(--fg) 6%);
   overflow-y: auto;
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 0.24s ease, transform 0.24s ease;
 }
 
-.sidebar-header {
-  margin-bottom: 12px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--fg-muted);
+#reader.has-sidebar.sidebar-collapsed #file-sidebar {
+  opacity: 0;
+  transform: translateX(-16px);
+  pointer-events: none;
 }
 
 #file-list {
@@ -339,7 +344,8 @@ body.drag-over .landing-icon {
 }
 
 @media (max-width: 900px) {
-  #reader.has-sidebar {
+  #reader.has-sidebar,
+  #reader.has-sidebar.sidebar-collapsed {
     grid-template-columns: 1fr;
   }
 
@@ -350,6 +356,14 @@ body.drag-over .landing-icon {
     border-right: 0;
     border-bottom: 1px solid var(--border);
     background: transparent;
+    max-height: 220px;
+  }
+
+  #reader.has-sidebar.sidebar-collapsed #file-sidebar {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-bottom: 0;
   }
 
   #file-list {
@@ -365,6 +379,43 @@ body.drag-over .landing-icon {
   #reader-main {
     padding-top: 24px;
   }
+
+  #reader.has-sidebar:not(.sidebar-collapsed) ~ #sidebar-toggle {
+    transform: none;
+  }
+}
+
+#sidebar-toggle {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--controls-border);
+  background: var(--controls-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: var(--controls-shadow);
+  color: var(--fg-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font: inherit;
+  font-size: 13px;
+  z-index: 101;
+  opacity: 0.75;
+  transition: opacity 0.2s ease, background 0.2s ease, color 0.2s ease, transform 0.24s ease;
+}
+
+#sidebar-toggle:hover {
+  opacity: 1;
+  color: var(--fg);
+}
+
+#reader.has-sidebar:not(.sidebar-collapsed) ~ #sidebar-toggle {
+  transform: translateX(244px);
 }
 
 /* --- Settings Toggle Button --- */
