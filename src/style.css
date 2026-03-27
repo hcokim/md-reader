@@ -775,11 +775,334 @@ body[data-color-mode="light"][data-theme="mono"] #content pre.shiki span {
   margin: 1em 0;
 }
 
+/* --- Present Toggle Button --- */
+
+#present-toggle {
+  position: fixed;
+  top: 16px;
+  right: 56px;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  z-index: 101;
+  opacity: 0.5;
+  transition: opacity 0.2s ease, color 0.2s ease;
+}
+
+#present-toggle:hover {
+  opacity: 1;
+  color: var(--fg);
+}
+
+/* --- Presentation Overlay --- */
+
+#present-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#present-overlay[hidden],
+#present-overlay.hidden {
+  display: none !important;
+}
+
+.present-slide {
+  width: 100%;
+  height: 100%;
+  max-width: 900px;
+  padding: 48px;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.present-slide-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  position: relative;
+}
+
+.present-breadcrumb {
+  font-size: 14px;
+  color: var(--fg-muted);
+  margin-bottom: 32px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.4;
+}
+
+.present-slide-title .present-breadcrumb {
+  position: absolute;
+  top: 48px;
+  left: 48px;
+  margin-bottom: 0;
+}
+
+.present-breadcrumb-sep {
+  margin: 0 4px;
+  opacity: 0.4;
+}
+
+.present-slide-title h1 {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 700;
+  color: var(--heading-fg);
+  line-height: 1.2;
+  margin: 0;
+  border: none;
+  padding: 0;
+}
+
+.present-slide-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.present-slide-content h1 {
+  font-size: clamp(1.5rem, 3.5vw, 2.25rem);
+  font-weight: 700;
+  color: var(--heading-fg);
+  line-height: 1.3;
+  margin: 0 0 0.75em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--border);
+  width: 100%;
+}
+
+.present-body {
+  width: 100%;
+  color: var(--fg);
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  line-height: 1.7;
+}
+
+.present-body h2,
+.present-body h3,
+.present-body h4,
+.present-body h5,
+.present-body h6 {
+  color: var(--heading-fg);
+  margin-top: 1.25em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.present-body h2 { font-size: 1.3em; }
+.present-body h3 { font-size: 1.1em; }
+.present-body h4 { font-size: 1em; }
+
+.present-body p { margin: 0 0 0.75em; }
+.present-body ul,
+.present-body ol { margin: 0 0 0.75em; padding-left: 1.5em; }
+.present-body li { margin-bottom: 0.25em; }
+.present-body a { color: var(--link); text-decoration: none; }
+.present-body a:hover { text-decoration: underline; }
+.present-body blockquote { margin: 0 0 0.75em; padding: 0.5em 1em; border-left: 4px solid var(--blockquote-border); color: var(--blockquote-fg); }
+.present-body img { max-width: 100%; height: auto; border-radius: 4px; }
+
+.present-body pre {
+  background: var(--code-bg);
+  border-radius: 8px;
+  padding: 16px;
+  overflow-x: auto;
+  margin: 0 0 0.75em;
+  font-size: 0.85em;
+  line-height: 1.5;
+}
+
+.present-body code {
+  font-family: "SF Mono", SFMono-Regular, ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.875em;
+  background: var(--code-bg);
+  color: var(--code-fg);
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+}
+
+.present-body pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+.present-body pre.shiki {
+  background-color: var(--code-bg) !important;
+}
+
+.present-body pre.shiki span {
+  color: var(--shiki-light) !important;
+}
+
+body[data-color-mode="dark"] .present-body pre.shiki span {
+  color: var(--shiki-dark) !important;
+}
+
+.present-body table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0 0 0.75em;
+}
+
+.present-body th,
+.present-body td {
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  text-align: left;
+}
+
+.present-body thead th {
+  font-weight: 600;
+  border-bottom: 2px solid var(--border-heavy);
+}
+
+.present-body tbody tr:nth-child(even) {
+  background: var(--table-stripe);
+}
+
+.present-body hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.5em 0;
+}
+
+/* --- Presentation Nav Bar --- */
+
+#present-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px 24px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+#present-dots {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  max-width: min(70vw, 480px);
+  overflow-x: auto;
+  padding: 4px 2px;
+  scrollbar-width: none;
+}
+
+#present-dots::-webkit-scrollbar {
+  display: none;
+}
+
+.present-dot {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 24px;
+  border: none;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.present-dot::after {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--fg-muted);
+  opacity: 0.25;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.present-dot:hover::after {
+  opacity: 0.6;
+  transform: scale(1.4);
+}
+
+.present-dot.active::after {
+  opacity: 1;
+  background: var(--fg);
+  transform: scale(1.3);
+}
+
+#present-counter {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--fg-muted);
+  opacity: 0.5;
+  white-space: nowrap;
+}
+
+/* --- Presentation Tooltip --- */
+
+#present-tooltip {
+  position: fixed;
+  z-index: 1002;
+  width: 280px;
+  height: 72px;
+  padding: 8px 12px;
+  background: var(--controls-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--controls-border);
+  border-radius: 8px;
+  box-shadow: var(--controls-shadow);
+  pointer-events: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+#present-tooltip.hidden {
+  display: none;
+}
+
+.present-tooltip-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--heading-fg);
+  line-height: 1.3;
+}
+
+.present-tooltip-preview {
+  font-size: 12px;
+  color: var(--fg-muted);
+  line-height: 1.4;
+  margin-top: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* --- Print styles --- */
 
 @media print {
   #settings-toggle,
-  #settings-panel {
+  #settings-panel,
+  #present-toggle {
     display: none !important;
   }
 

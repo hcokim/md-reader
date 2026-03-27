@@ -42,6 +42,22 @@
       </svg>
     </button>
 
+    <button id="present-toggle" class="hidden" type="button" aria-label="Present">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="6,3 20,12 6,21" fill="currentColor" stroke="none"/>
+      </svg>
+    </button>
+
+    <!-- Presentation overlay -->
+    <div id="present-overlay" class="hidden">
+      <div id="present-slide"></div>
+      <nav id="present-nav">
+        <div id="present-dots"></div>
+        <div id="present-counter"></div>
+      </nav>
+      <div id="present-tooltip" class="hidden"></div>
+    </div>
+
     <!-- Settings toggle + panel -->
     <button id="settings-toggle" class="hidden" type="button" aria-label="Settings">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

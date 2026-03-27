@@ -9,6 +9,7 @@ const fileList = document.getElementById('file-list')!
 const outlineList = document.getElementById('outline-list')!
 const sidebarToggle = document.getElementById('sidebar-toggle') as HTMLButtonElement
 const settingsToggle = document.getElementById('settings-toggle')!
+const presentToggle = document.getElementById('present-toggle')!
 const fileInput = document.getElementById('file-input') as HTMLInputElement
 const openLink = document.getElementById('open-link')!
 
@@ -305,5 +306,6 @@ function showReader(fileName: string) {
   landing.classList.add('hidden')
   reader.classList.remove('hidden')
   settingsToggle.classList.remove('hidden')
+  presentToggle.classList.remove('hidden')
   document.title = fileName
 }
