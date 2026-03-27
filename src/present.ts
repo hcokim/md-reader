@@ -9,6 +9,8 @@ const presentToggle = document.getElementById('present-toggle') as HTMLButtonEle
 const presentSidebar = document.getElementById('present-sidebar')!
 const presentSidebarBackdrop = document.getElementById('present-sidebar-backdrop')!
 const presentSidebarToggle = document.getElementById('present-sidebar-toggle') as HTMLButtonElement
+const presentPrevZone = document.getElementById('present-prev-zone')!
+const presentNextZone = document.getElementById('present-next-zone')!
 
 type Slide = {
   type: 'title' | 'content'
@@ -28,6 +30,10 @@ export function initPresent() {
   presentSidebarToggle.addEventListener('click', togglePresentSidebar)
   presentCounter.addEventListener('click', togglePresentSidebar)
   presentSidebarBackdrop.addEventListener('click', closePresentSidebar)
+  const goPrev = () => goTo(currentSlide - 1)
+  const goNext = () => goTo(currentSlide + 1)
+  presentPrevZone.addEventListener('click', goPrev)
+  presentNextZone.addEventListener('click', goNext)
 
   const isTyping = (target: EventTarget | null) => {
     const el = target as HTMLElement | null
@@ -72,6 +78,8 @@ export function initPresent() {
     presentSidebarToggle.removeEventListener('click', togglePresentSidebar)
     presentCounter.removeEventListener('click', togglePresentSidebar)
     presentSidebarBackdrop.removeEventListener('click', closePresentSidebar)
+    presentPrevZone.removeEventListener('click', goPrev)
+    presentNextZone.removeEventListener('click', goNext)
     document.removeEventListener('keydown', handleKey, true)
   }
 }

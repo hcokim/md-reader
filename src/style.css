@@ -86,7 +86,7 @@ body[data-theme="github"] {
 }
 
 body[data-theme="serif"] {
-  --font-body: Georgia, "Times New Roman", serif;
+  --font-body: "Source Serif 4", Georgia, "Times New Roman", serif;
   --font-size: 18px;
   --line-height: 1.7;
   --bg: #faf8f5;
@@ -107,7 +107,7 @@ body[data-theme="serif"] {
 }
 
 body[data-theme="sans"] {
-  --font-body: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body: "Google Sans Flex", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-size: 16px;
   --line-height: 1.65;
   --letter-spacing: -0.015em;
@@ -132,19 +132,19 @@ body[data-theme="mono"] {
   --font-body: "SF Mono", SFMono-Regular, ui-monospace, Menlo, Consolas, monospace;
   --font-size: 14px;
   --line-height: 1.6;
-  --bg: #1a1a2e;
-  --fg: #c8c8d0;
-  --fg-muted: #8888a0;
-  --link: #7dd3fc;
-  --border: #2a2a45;
-  --border-heavy: #3a3a5c;
-  --code-bg: #12121f;
-  --code-fg: #e0e0e8;
-  --blockquote-border: #3a3a5c;
-  --blockquote-fg: #8888a0;
-  --table-stripe: #1e1e35;
-  --heading-fg: #e8e8f0;
-  --controls-bg: rgba(26, 26, 46, 0.92);
+  --bg: #1d1916;
+  --fg: #d4cdc4;
+  --fg-muted: #958e84;
+  --link: #d4956a;
+  --border: #2e2924;
+  --border-heavy: #3d3630;
+  --code-bg: #14110f;
+  --code-fg: #ddd6cc;
+  --blockquote-border: #3d3630;
+  --blockquote-fg: #958e84;
+  --table-stripe: #221e1a;
+  --heading-fg: #ede7de;
+  --controls-bg: rgba(29, 25, 22, 0.92);
   --controls-border: rgba(255, 255, 255, 0.08);
   --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
@@ -912,6 +912,23 @@ body[data-color-mode="light"][data-theme="mono"] #content pre.shiki span {
 #present-overlay[hidden],
 #present-overlay.hidden {
   display: none !important;
+}
+
+#present-prev-zone,
+#present-next-zone {
+  position: fixed;
+  top: 0;
+  bottom: 48px;
+  width: 15%;
+  cursor: pointer;
+}
+
+#present-prev-zone {
+  left: 0;
+}
+
+#present-next-zone {
+  right: 0;
 }
 
 .present-slide {
