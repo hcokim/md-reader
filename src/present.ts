@@ -29,7 +29,20 @@ export function initPresent() {
   presentCounter.addEventListener('click', togglePresentSidebar)
   presentSidebarBackdrop.addEventListener('click', closePresentSidebar)
 
+  const isTyping = (target: EventTarget | null) => {
+    const el = target as HTMLElement | null
+    if (!el) return false
+    const tag = el.tagName
+    return el.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+  }
+
   const handleKey = (e: KeyboardEvent) => {
+    if (!active && e.key === 'p' && !e.metaKey && !e.ctrlKey && !e.altKey && !isTyping(e.target)) {
+      e.preventDefault()
+      enterPresent()
+      return
+    }
+
     if (!active) return
 
     if (e.key === 'Escape') {
