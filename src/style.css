@@ -410,7 +410,7 @@ body.drag-over .landing-icon {
   gap: 2px;
 }
 
-#file-list + #outline-list:not(.hidden) {
+#file-list:not(.hidden) + #outline-list:not(.hidden) {
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid var(--border);
@@ -687,6 +687,24 @@ body.drag-over .landing-icon {
 #content h2:first-child,
 #content h3:first-child {
   margin-top: 0;
+}
+
+#content .article-meta {
+  color: var(--fg-muted);
+  font-size: 0.9em;
+  margin: -0.5em 0 1.5em;
+  padding-bottom: 1em;
+  border-bottom: 1px solid var(--border);
+}
+
+#content .article-meta a {
+  color: var(--fg-muted);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--fg-muted) 40%, transparent);
+}
+
+#content .article-meta a:hover {
+  color: var(--link);
 }
 
 #content p {

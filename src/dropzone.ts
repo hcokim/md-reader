@@ -199,15 +199,39 @@ async function loadUrl(input: string) {
       throw new Error('No content returned')
     }
 
-    // Extract title from defuddle frontmatter or use the domain
+    // Parse metadata from defuddle frontmatter
     let title = defuddlePath
-    const titleMatch = text.match(/^---\s*\n[\s\S]*?^title:\s*(.+)$/m)
-    if (titleMatch) {
-      title = titleMatch[1].trim().replace(/^['"]|['"]$/g, '')
+    const frontmatterMatch = text.match(/^---\s*\n([\s\S]*?)\n---\s*(?:\n|$)/)
+    const meta: Record<string, string> = {}
+    if (frontmatterMatch) {
+      for (const line of frontmatterMatch[1].split('\n')) {
+        const m = line.match(/^(\w+):\s*(.+)$/)
+        if (m) meta[m[1]] = m[2].trim().replace(/^['"]|['"]$/g, '')
+      }
+      if (meta.title) title = meta.title
     }
 
-    // Strip YAML frontmatter before rendering
-    const markdown = text.replace(/^---\s*\n[\s\S]*?\n---\s*(?:\n|$)/, '')
+    // Strip YAML frontmatter, then prepend title and metadata
+    const body = text.replace(/^---\s*\n[\s\S]*?\n---\s*(?:\n|$)/, '')
+    const metaParts: string[] = []
+    if (meta.author) metaParts.push(meta.author)
+    if (meta.site) metaParts.push(meta.site)
+    if (meta.published) {
+      const d = new Date(meta.published)
+      if (!isNaN(d.getTime())) metaParts.push(d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }))
+    }
+    let header = `# ${title}\n\n`
+    if (metaParts.length > 0 || meta.source) {
+      header += '<p class="article-meta">'
+      if (metaParts.length > 0) header += metaParts.join(' · ')
+      if (meta.source) {
+        const domain = meta.domain || new URL(meta.source).hostname
+        if (metaParts.length > 0) header += ' · '
+        header += `<a href="${meta.source}">${domain}</a>`
+      }
+      header += '</p>\n\n'
+    }
+    const markdown = header + body
 
     const file: SessionFile = {
       id: buildFileId(),
@@ -262,6 +286,7 @@ function setActiveFile(fileId: string) {
 
   content.innerHTML = render(file.text)
   outlineItems = buildOutline()
+  isSidebarCollapsed = outlineItems.length <= 5 && sessionFiles.length <= 1
   showReader(file.name)
   renderSidebar()
 }
