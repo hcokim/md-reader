@@ -397,6 +397,10 @@ body.drag-over .landing-icon {
 .outline-item.level-5 { padding-left: 56px; }
 .outline-item.level-6 { padding-left: 68px; }
 
+#sidebar-backdrop {
+  display: none;
+}
+
 #reader-main {
   min-width: 0;
   padding: 48px 24px 96px;
@@ -416,33 +420,47 @@ body.drag-over .landing-icon {
   }
 
   #file-sidebar {
-    position: static;
-    height: auto;
-    padding: 56px 12px 0;
-    background: transparent;
-    max-height: 220px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: min(300px, 80vw);
+    height: 100vh;
+    height: 100dvh;
+    padding: 56px 12px 24px;
+    background: var(--bg);
+    z-index: 200;
+    overflow-y: auto;
+    transform: translateX(0);
+    opacity: 1;
+    transition: transform 0.24s ease, opacity 0.24s ease;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
   }
 
   #reader.has-sidebar.sidebar-collapsed #file-sidebar {
-    max-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
+    transform: translateX(-100%);
+    opacity: 0;
+    pointer-events: none;
+    box-shadow: none;
   }
 
-  #sidebar-switcher {
-    margin-bottom: 8px;
+  #sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 199;
+    background: rgba(0, 0, 0, 0.3);
+    opacity: 1;
+    transition: opacity 0.24s ease;
+  }
+
+  #sidebar-backdrop.hidden {
+    opacity: 0;
+    pointer-events: none;
   }
 
   #file-list,
   #outline-list {
-    flex-direction: row;
-    overflow-x: auto;
-    padding-bottom: 12px;
-  }
-
-  .file-tab,
-  .outline-item {
-    flex: 0 0 auto;
+    flex-direction: column;
   }
 
   #reader-main {

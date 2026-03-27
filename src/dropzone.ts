@@ -4,6 +4,7 @@ const landing = document.getElementById('landing')!
 const reader = document.getElementById('reader')!
 const content = document.getElementById('content')!
 const fileSidebar = document.getElementById('file-sidebar')!
+const sidebarBackdrop = document.getElementById('sidebar-backdrop')!
 const fileList = document.getElementById('file-list')!
 const outlineList = document.getElementById('outline-list')!
 const sidebarToggle = document.getElementById('sidebar-toggle') as HTMLButtonElement
@@ -91,6 +92,7 @@ export function initDropzone(ready: Promise<void>) {
   document.body.addEventListener('dragleave', handleDragLeave)
   document.body.addEventListener('drop', handleDrop)
   sidebarToggle.addEventListener('click', handleSidebarToggle)
+  sidebarBackdrop.addEventListener('click', dismissSidebarIfNarrow)
   document.addEventListener('keydown', handleShortcut)
 
   return () => {
@@ -100,6 +102,7 @@ export function initDropzone(ready: Promise<void>) {
     document.body.removeEventListener('dragleave', handleDragLeave)
     document.body.removeEventListener('drop', handleDrop)
     sidebarToggle.removeEventListener('click', handleSidebarToggle)
+    sidebarBackdrop.removeEventListener('click', dismissSidebarIfNarrow)
     document.removeEventListener('keydown', handleShortcut)
   }
 }
@@ -195,6 +198,17 @@ function getUniqueId(baseId: string, usedIds: Set<string>) {
   return candidate
 }
 
+function isNarrowViewport() {
+  return window.matchMedia('(max-width: 900px)').matches
+}
+
+function dismissSidebarIfNarrow() {
+  if (isNarrowViewport() && !isSidebarCollapsed) {
+    isSidebarCollapsed = true
+    renderSidebar()
+  }
+}
+
 function toggleSidebar() {
   const hasSidebarContent = sessionFiles.length > 1 || outlineItems.length > 0
   if (!hasSidebarContent) return
@@ -216,6 +230,9 @@ function renderSidebar() {
     sidebarToggle.setAttribute('aria-label', isSidebarCollapsed ? 'Show navigation sidebar' : 'Hide navigation sidebar')
     sidebarToggle.setAttribute('aria-expanded', String(!isSidebarCollapsed))
   }
+
+  const showBackdrop = isNarrowViewport() && hasSidebarContent && !isSidebarCollapsed
+  sidebarBackdrop.classList.toggle('hidden', !showBackdrop)
 
   fileList.classList.toggle('hidden', !hasMultipleFiles)
   outlineList.classList.toggle('hidden', !hasOutline)
@@ -241,6 +258,7 @@ function renderFileList(hasMultipleFiles: boolean) {
 
     button.addEventListener('click', () => {
       setActiveFile(file.id)
+      dismissSidebarIfNarrow()
     })
 
     fileList.appendChild(button)
@@ -260,6 +278,7 @@ function renderOutline(hasOutline: boolean) {
     button.addEventListener('click', () => {
       const heading = document.getElementById(item.id)
       heading?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      dismissSidebarIfNarrow()
     })
     outlineList.appendChild(button)
   }
