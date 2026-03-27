@@ -14,6 +14,7 @@ const fileInput = document.getElementById('file-input') as HTMLInputElement
 const openLink = document.getElementById('open-link')!
 const urlForm = document.getElementById('url-form') as HTMLFormElement
 const urlInput = document.getElementById('url-input') as HTMLInputElement
+const restoreBtn = document.getElementById('restore-session') as HTMLButtonElement
 
 type SessionFile = {
   id: string
@@ -31,6 +32,55 @@ type OutlineItem = {
 
 const ACCEPTED_EXTENSIONS = ['.md', '.markdown', '.mdx', '.txt']
 
+const DB_NAME = 'md-reader'
+const DB_STORE = 'session'
+
+function openDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1)
+    req.onupgradeneeded = () => req.result.createObjectStore(DB_STORE)
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => reject(req.error)
+  })
+}
+
+async function saveSession(handles: FileSystemFileHandle[]) {
+  try {
+    const db = await openDb()
+    const tx = db.transaction(DB_STORE, 'readwrite')
+    tx.objectStore(DB_STORE).put(handles, 'handles')
+    db.close()
+  } catch {
+    // IndexedDB unavailable — ignore
+  }
+}
+
+async function loadSession(): Promise<FileSystemFileHandle[]> {
+  try {
+    const db = await openDb()
+    return new Promise((resolve) => {
+      const tx = db.transaction(DB_STORE, 'readonly')
+      const req = tx.objectStore(DB_STORE).get('handles')
+      req.onsuccess = () => resolve(req.result ?? [])
+      req.onerror = () => resolve([])
+      db.close()
+    })
+  } catch {
+    return []
+  }
+}
+
+async function clearSession() {
+  try {
+    const db = await openDb()
+    const tx = db.transaction(DB_STORE, 'readwrite')
+    tx.objectStore(DB_STORE).delete('handles')
+    db.close()
+  } catch {
+    // ignore
+  }
+}
+
 let markdownReady: Promise<void>
 let sessionFiles: SessionFile[] = []
 let activeFileId: string | null = null
@@ -40,6 +90,16 @@ let fileCounter = 0
 
 export function initDropzone(ready: Promise<void>) {
   markdownReady = ready
+
+  // Check for a restorable session and show the button if available
+  void loadSession().then((handles) => {
+    if (handles.length > 0) {
+      restoreBtn.classList.remove('hidden')
+      const count = handles.length
+      restoreBtn.querySelector('span')!.textContent =
+        count === 1 ? `Restore previous file` : `Restore ${count} previous files`
+    }
+  })
 
   const handleOpenClick = async (e: MouseEvent) => {
     e.preventDefault()
@@ -90,15 +150,15 @@ export function initDropzone(ready: Promise<void>) {
     document.body.classList.remove('drag-over')
 
     // Try to get file handles for live reload support
+    // Must call getAsFileSystemHandle synchronously for all items —
+    // DataTransferItem references are invalidated after the event
     const items = Array.from(e.dataTransfer?.items ?? [])
     if (items.length > 0 && 'getAsFileSystemHandle' in DataTransferItem.prototype) {
-      const handles: FileSystemFileHandle[] = []
-      for (const item of items) {
-        const handle = await item.getAsFileSystemHandle!()
-        if (handle?.kind === 'file' && isReadableName(handle.name)) {
-          handles.push(handle as FileSystemFileHandle)
-        }
-      }
+      const handlePromises = items.map((item) => item.getAsFileSystemHandle!())
+      const results = await Promise.all(handlePromises)
+      const handles = results.filter(
+        (h): h is FileSystemFileHandle => h?.kind === 'file' && isReadableName(h.name)
+      )
       if (handles.length > 0) {
         void loadFileHandles(handles)
         return
@@ -109,6 +169,30 @@ export function initDropzone(ready: Promise<void>) {
     const files = Array.from(e.dataTransfer?.files ?? []).filter(isReadableMarkdownFile)
     if (files.length > 0) {
       void loadFiles(files)
+    }
+  }
+
+  const handleRestore = async () => {
+    const handles = await loadSession()
+    if (handles.length === 0) return
+
+    // Request permission — needs user gesture (this click counts)
+    const permitted: FileSystemFileHandle[] = []
+    for (const handle of handles) {
+      try {
+        const perm = await handle.requestPermission({ mode: 'read' })
+        if (perm === 'granted') permitted.push(handle)
+      } catch {
+        // Permission denied or handle invalid
+      }
+    }
+
+    if (permitted.length > 0) {
+      void loadFileHandles(permitted)
+    } else {
+      restoreBtn.querySelector('span')!.textContent = 'Permission denied'
+      setTimeout(() => { restoreBtn.classList.add('hidden') }, 2000)
+      void clearSession()
     }
   }
 
@@ -151,6 +235,7 @@ export function initDropzone(ready: Promise<void>) {
 
   openLink.addEventListener('click', handleOpenClick)
   fileInput.addEventListener('change', handleInputChange)
+  restoreBtn.addEventListener('click', handleRestore)
   urlForm.addEventListener('submit', handleUrlSubmit)
   document.body.addEventListener('dragover', handleDragOver)
   document.body.addEventListener('dragleave', handleDragLeave)
@@ -163,6 +248,7 @@ export function initDropzone(ready: Promise<void>) {
   return () => {
     openLink.removeEventListener('click', handleOpenClick)
     fileInput.removeEventListener('change', handleInputChange)
+    restoreBtn.removeEventListener('click', handleRestore)
     urlForm.removeEventListener('submit', handleUrlSubmit)
     document.body.removeEventListener('dragover', handleDragOver)
     document.body.removeEventListener('dragleave', handleDragLeave)
@@ -195,6 +281,7 @@ async function loadFiles(files: File[]) {
   renderSidebar()
   setActiveFile(loadedFiles[0].id)
   fileInput.value = ''
+  void clearSession()
 }
 
 async function loadFileHandles(handles: FileSystemFileHandle[]) {
@@ -224,6 +311,10 @@ async function loadFileHandles(handles: FileSystemFileHandle[]) {
   setActiveFile(loadedFiles[0].id)
   fileInput.value = ''
   startWatchingFiles()
+
+  // Persist handles for session restore
+  const allHandles = sessionFiles.filter((f) => f.handle).map((f) => f.handle!)
+  void saveSession(allHandles)
 }
 
 let watchInterval: ReturnType<typeof setInterval> | null = null
@@ -351,6 +442,7 @@ async function loadUrl(input: string) {
 
     renderSidebar()
     setActiveFile(file.id)
+    void clearSession()
   } catch (err) {
     urlInput.value = ''
     urlInput.placeholder = err instanceof Error ? err.message : 'Failed to load URL'

@@ -11,6 +11,10 @@ interface DataTransferItem {
   getAsFileSystemHandle?(): Promise<FileSystemHandle | null>
 }
 
+interface FileSystemFileHandle {
+  requestPermission(descriptor?: { mode?: 'read' | 'readwrite' }): Promise<PermissionState>
+}
+
 declare module 'markdown-it-texmath' {
   import type MarkdownIt from 'markdown-it'
   const plugin: MarkdownIt.PluginSimple
