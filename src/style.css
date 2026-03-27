@@ -926,6 +926,14 @@ body[data-color-mode="light"][data-theme="mono"] #content pre.shiki span {
   font-size: calc(13px - var(--depth) * 0.5px);
   padding-left: calc(var(--depth) * 12px);
   opacity: calc(0.55 + var(--depth) * 0.15);
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+
+.present-breadcrumb-level:hover {
+  opacity: 1;
+  color: var(--link);
 }
 
 .present-slide-title .present-breadcrumb {

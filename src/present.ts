@@ -271,7 +271,7 @@ function renderSlide() {
   presentCounter.textContent = `${currentSlide + 1} / ${slides.length}`
 
   const breadcrumbHtml = slide.breadcrumb.length > 0
-    ? `<div class="present-breadcrumb">${slide.breadcrumb.map((b, i) => `<span class="present-breadcrumb-level" style="--depth:${i}">${i > 0 ? '<span class="present-breadcrumb-sep">›</span> ' : ''}${escapeHtml(b)}</span>`).join('')}</div>`
+    ? `<div class="present-breadcrumb">${slide.breadcrumb.map((b, i) => `<a class="present-breadcrumb-level" style="--depth:${i}" data-breadcrumb="${escapeHtml(b)}">${i > 0 ? '<span class="present-breadcrumb-sep">›</span> ' : ''}${escapeHtml(b)}</a>`).join('')}</div>`
     : ''
 
   if (slide.type === 'title') {
@@ -282,6 +282,19 @@ function renderSlide() {
     const titleHtml = slide.heading ? `<h1>${escapeHtml(slide.heading)}</h1>` : ''
     presentSlide.innerHTML = `${breadcrumbHtml}${titleHtml}<div class="present-body">${slide.html}</div>`
   }
+
+  presentSlide.querySelectorAll<HTMLElement>('.present-breadcrumb-level').forEach((el) => {
+    el.addEventListener('click', () => {
+      const title = el.dataset.breadcrumb
+      for (let i = currentSlide - 1; i >= 0; i--) {
+        if (slides[i].heading === title) { goTo(i); return }
+      }
+      // fallback: search forward from start
+      for (let i = 0; i < currentSlide; i++) {
+        if (slides[i].heading === title) { goTo(i); return }
+      }
+    })
+  })
 
   presentSlide.scrollTop = 0
 }
