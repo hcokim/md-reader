@@ -214,31 +214,25 @@ function renderDots() {
   presentDots.innerHTML = ''
 
   for (let i = 0; i < slides.length; i++) {
-    const dot = document.createElement('button')
-    dot.type = 'button'
-    dot.className = 'present-dot'
-    dot.setAttribute('aria-label', `Go to slide ${i + 1}`)
+    const seg = document.createElement('button')
+    seg.type = 'button'
+    seg.className = 'present-seg'
+    seg.setAttribute('aria-label', `Go to slide ${i + 1}`)
 
-    dot.addEventListener('click', () => goTo(i))
-    dot.addEventListener('mouseenter', (e) => showTooltip(i, e.currentTarget as HTMLElement))
-    dot.addEventListener('mouseleave', hideTooltip)
+    seg.addEventListener('click', () => goTo(i))
+    seg.addEventListener('mouseenter', (e) => showTooltip(i, e.currentTarget as HTMLElement))
+    seg.addEventListener('mouseleave', hideTooltip)
 
-    presentDots.appendChild(dot)
+    presentDots.appendChild(seg)
   }
 
   updateActiveDot()
 }
 
 function updateActiveDot() {
-  const dots = presentDots.children
-  for (let i = 0; i < dots.length; i++) {
-    dots[i].classList.toggle('active', i === currentSlide)
-  }
-
-  // Scroll the active dot into view within the dot track
-  const activeDot = dots[currentSlide] as HTMLElement | undefined
-  if (activeDot) {
-    activeDot.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
+  const segs = presentDots.children
+  for (let i = 0; i < segs.length; i++) {
+    segs[i].classList.toggle('active', i === currentSlide)
   }
 }
 
@@ -255,7 +249,7 @@ function showTooltip(index: number, anchor: HTMLElement) {
   presentTooltip.innerHTML = html
   presentTooltip.classList.remove('hidden')
 
-  // Position above the dot
+  // Position above the segment
   const dotRect = anchor.getBoundingClientRect()
   const tipWidth = presentTooltip.offsetWidth
   let left = dotRect.left + dotRect.width / 2 - tipWidth / 2
