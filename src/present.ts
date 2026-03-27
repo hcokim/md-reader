@@ -4,6 +4,7 @@ const presentSlide = document.getElementById('present-slide')!
 const presentDots = document.getElementById('present-dots')!
 const presentCounter = document.getElementById('present-counter')!
 const presentTooltip = document.getElementById('present-tooltip')!
+const presentClose = document.getElementById('present-close') as HTMLButtonElement
 const presentToggle = document.getElementById('present-toggle') as HTMLButtonElement
 
 type Slide = {
@@ -20,6 +21,7 @@ let active = false
 
 export function initPresent() {
   presentToggle.addEventListener('click', enterPresent)
+  presentClose.addEventListener('click', exitPresent)
 
   const handleKey = (e: KeyboardEvent) => {
     if (!active) return
@@ -47,6 +49,7 @@ export function initPresent() {
 
   return () => {
     presentToggle.removeEventListener('click', enterPresent)
+    presentClose.removeEventListener('click', exitPresent)
     document.removeEventListener('keydown', handleKey, true)
   }
 }
