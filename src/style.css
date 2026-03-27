@@ -1122,7 +1122,9 @@ body[data-color-mode="dark"] .present-body pre.shiki span {
   color: var(--fg-muted);
   opacity: 0.5;
   white-space: nowrap;
-  min-width: 36px;
+  min-width: 72px;
+  text-align: center;
+  cursor: pointer;
 }
 
 #present-sidebar-toggle {

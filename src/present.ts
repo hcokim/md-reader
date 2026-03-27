@@ -26,6 +26,7 @@ export function initPresent() {
   presentToggle.addEventListener('click', enterPresent)
   presentClose.addEventListener('click', exitPresent)
   presentSidebarToggle.addEventListener('click', togglePresentSidebar)
+  presentCounter.addEventListener('click', togglePresentSidebar)
   presentSidebarBackdrop.addEventListener('click', closePresentSidebar)
 
   const handleKey = (e: KeyboardEvent) => {
@@ -56,6 +57,7 @@ export function initPresent() {
     presentToggle.removeEventListener('click', enterPresent)
     presentClose.removeEventListener('click', exitPresent)
     presentSidebarToggle.removeEventListener('click', togglePresentSidebar)
+    presentCounter.removeEventListener('click', togglePresentSidebar)
     presentSidebarBackdrop.removeEventListener('click', closePresentSidebar)
     document.removeEventListener('keydown', handleKey, true)
   }
