@@ -1,3 +1,16 @@
+interface OpenFilePickerOptions {
+  multiple?: boolean
+  types?: { description?: string; accept: Record<string, string[]> }[]
+}
+
+interface Window {
+  showOpenFilePicker?: (options?: OpenFilePickerOptions) => Promise<FileSystemFileHandle[]>
+}
+
+interface DataTransferItem {
+  getAsFileSystemHandle?(): Promise<FileSystemHandle | null>
+}
+
 declare module 'markdown-it-texmath' {
   import type MarkdownIt from 'markdown-it'
   const plugin: MarkdownIt.PluginSimple

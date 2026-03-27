@@ -19,6 +19,8 @@ type SessionFile = {
   id: string
   name: string
   text: string
+  handle?: FileSystemFileHandle
+  lastModified?: number
 }
 
 type OutlineItem = {
@@ -39,9 +41,26 @@ let fileCounter = 0
 export function initDropzone(ready: Promise<void>) {
   markdownReady = ready
 
-  const handleOpenClick = (e: MouseEvent) => {
+  const handleOpenClick = async (e: MouseEvent) => {
     e.preventDefault()
-    fileInput.click()
+    if ('showOpenFilePicker' in window) {
+      try {
+        const handles = await window.showOpenFilePicker!({
+          multiple: true,
+          types: [{
+            description: 'Markdown files',
+            accept: { 'text/markdown': ['.md', '.markdown', '.mdx', '.txt'] },
+          }],
+        })
+        if (handles.length > 0) {
+          void loadFileHandles(handles)
+        }
+      } catch {
+        // User cancelled the picker
+      }
+    } else {
+      fileInput.click()
+    }
   }
 
   const handleInputChange = () => {
@@ -65,10 +84,28 @@ export function initDropzone(ready: Promise<void>) {
     }
   }
 
-  const handleDrop = (e: DragEvent) => {
+  const handleDrop = async (e: DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
     document.body.classList.remove('drag-over')
+
+    // Try to get file handles for live reload support
+    const items = Array.from(e.dataTransfer?.items ?? [])
+    if (items.length > 0 && 'getAsFileSystemHandle' in DataTransferItem.prototype) {
+      const handles: FileSystemFileHandle[] = []
+      for (const item of items) {
+        const handle = await item.getAsFileSystemHandle!()
+        if (handle?.kind === 'file' && isReadableName(handle.name)) {
+          handles.push(handle as FileSystemFileHandle)
+        }
+      }
+      if (handles.length > 0) {
+        void loadFileHandles(handles)
+        return
+      }
+    }
+
+    // Fallback: no handles available
     const files = Array.from(e.dataTransfer?.files ?? []).filter(isReadableMarkdownFile)
     if (files.length > 0) {
       void loadFiles(files)
@@ -158,6 +195,73 @@ async function loadFiles(files: File[]) {
   renderSidebar()
   setActiveFile(loadedFiles[0].id)
   fileInput.value = ''
+}
+
+async function loadFileHandles(handles: FileSystemFileHandle[]) {
+  const readable = handles.filter((h) => isReadableName(h.name))
+  if (readable.length === 0) return
+
+  await markdownReady
+
+  const loadedFiles: SessionFile[] = await Promise.all(readable.map(async (handle) => {
+    const file = await handle.getFile()
+    return {
+      id: buildFileId(),
+      name: handle.name,
+      text: await file.text(),
+      handle,
+      lastModified: file.lastModified,
+    }
+  }))
+
+  sessionFiles = [...sessionFiles, ...loadedFiles]
+
+  if (sessionFiles.length > 1 && activeFileId !== null) {
+    isSidebarCollapsed = false
+  }
+
+  renderSidebar()
+  setActiveFile(loadedFiles[0].id)
+  fileInput.value = ''
+  startWatchingFiles()
+}
+
+let watchInterval: ReturnType<typeof setInterval> | null = null
+
+function startWatchingFiles() {
+  if (watchInterval) return
+  watchInterval = setInterval(pollFiles, 2000)
+}
+
+async function pollFiles() {
+  const watchedFiles = sessionFiles.filter((f) => f.handle)
+  if (watchedFiles.length === 0) {
+    if (watchInterval) {
+      clearInterval(watchInterval)
+      watchInterval = null
+    }
+    return
+  }
+
+  for (const entry of watchedFiles) {
+    try {
+      const file = await entry.handle!.getFile()
+      if (file.lastModified !== entry.lastModified) {
+        entry.lastModified = file.lastModified
+        entry.text = await file.text()
+        if (entry.id === activeFileId) {
+          const scrollParent = content.parentElement
+          const scrollPos = scrollParent?.scrollTop ?? 0
+          content.innerHTML = render(entry.text)
+          outlineItems = buildOutline()
+          renderSidebar()
+          if (scrollParent) scrollParent.scrollTop = scrollPos
+        }
+      }
+    } catch {
+      // File may have been deleted or moved — skip
+    }
+  }
 }
 
 async function loadUrl(input: string) {
@@ -258,9 +362,13 @@ async function loadUrl(input: string) {
   }
 }
 
+function isReadableName(name: string) {
+  const lower = name.toLowerCase()
+  return ACCEPTED_EXTENSIONS.some((ext) => lower.endsWith(ext))
+}
+
 function isReadableMarkdownFile(file: File) {
-  const lowerName = file.name.toLowerCase()
-  return ACCEPTED_EXTENSIONS.some((extension) => lowerName.endsWith(extension))
+  return isReadableName(file.name)
 }
 
 function isTypingTarget(target: EventTarget | null) {
