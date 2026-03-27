@@ -12,6 +12,8 @@ const settingsToggle = document.getElementById('settings-toggle')!
 const presentToggle = document.getElementById('present-toggle')!
 const fileInput = document.getElementById('file-input') as HTMLInputElement
 const openLink = document.getElementById('open-link')!
+const urlForm = document.getElementById('url-form') as HTMLFormElement
+const urlInput = document.getElementById('url-input') as HTMLInputElement
 
 type SessionFile = {
   id: string
@@ -73,6 +75,14 @@ export function initDropzone(ready: Promise<void>) {
     }
   }
 
+  const handleUrlSubmit = (e: SubmitEvent) => {
+    e.preventDefault()
+    const url = urlInput.value.trim()
+    if (url) {
+      void loadUrl(url)
+    }
+  }
+
   const handleSidebarToggle = () => {
     toggleSidebar()
   }
@@ -104,6 +114,7 @@ export function initDropzone(ready: Promise<void>) {
 
   openLink.addEventListener('click', handleOpenClick)
   fileInput.addEventListener('change', handleInputChange)
+  urlForm.addEventListener('submit', handleUrlSubmit)
   document.body.addEventListener('dragover', handleDragOver)
   document.body.addEventListener('dragleave', handleDragLeave)
   document.body.addEventListener('drop', handleDrop)
@@ -115,6 +126,7 @@ export function initDropzone(ready: Promise<void>) {
   return () => {
     openLink.removeEventListener('click', handleOpenClick)
     fileInput.removeEventListener('change', handleInputChange)
+    urlForm.removeEventListener('submit', handleUrlSubmit)
     document.body.removeEventListener('dragover', handleDragOver)
     document.body.removeEventListener('dragleave', handleDragLeave)
     document.body.removeEventListener('drop', handleDrop)
@@ -146,6 +158,65 @@ async function loadFiles(files: File[]) {
   renderSidebar()
   setActiveFile(loadedFiles[0].id)
   fileInput.value = ''
+}
+
+async function loadUrl(input: string) {
+  // Normalize: strip protocol for the defuddle API path
+  let targetUrl = input
+  if (!/^https?:\/\//i.test(targetUrl)) {
+    targetUrl = `https://${targetUrl}`
+  }
+  const defuddlePath = targetUrl.replace(/^https?:\/\//i, '')
+
+  urlInput.disabled = true
+  urlInput.value = 'Loading\u2026'
+
+  try {
+    await markdownReady
+
+    const response = await fetch(`https://defuddle.md/${defuddlePath}`)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch (${response.status})`)
+    }
+
+    const text = await response.text()
+    if (!text.trim()) {
+      throw new Error('No content returned')
+    }
+
+    // Extract title from defuddle frontmatter or use the domain
+    let title = defuddlePath
+    const titleMatch = text.match(/^---\s*\n[\s\S]*?^title:\s*(.+)$/m)
+    if (titleMatch) {
+      title = titleMatch[1].trim().replace(/^['"]|['"]$/g, '')
+    }
+
+    // Strip YAML frontmatter before rendering
+    const markdown = text.replace(/^---\s*\n[\s\S]*?\n---\s*\n/, '')
+
+    const file: SessionFile = {
+      id: buildFileId(),
+      name: title,
+      text: markdown,
+    }
+
+    sessionFiles = [...sessionFiles, file]
+
+    if (sessionFiles.length > 1 && activeFileId !== null) {
+      isSidebarCollapsed = false
+    }
+
+    renderSidebar()
+    setActiveFile(file.id)
+  } catch (err) {
+    urlInput.value = ''
+    urlInput.placeholder = err instanceof Error ? err.message : 'Failed to load URL'
+    setTimeout(() => {
+      urlInput.placeholder = 'Paste a URL'
+    }, 3000)
+  } finally {
+    urlInput.disabled = false
+  }
 }
 
 function isReadableMarkdownFile(file: File) {
