@@ -6,6 +6,9 @@ const presentCounter = document.getElementById('present-counter')!
 const presentTooltip = document.getElementById('present-tooltip')!
 const presentClose = document.getElementById('present-close') as HTMLButtonElement
 const presentToggle = document.getElementById('present-toggle') as HTMLButtonElement
+const presentSidebar = document.getElementById('present-sidebar')!
+const presentSidebarBackdrop = document.getElementById('present-sidebar-backdrop')!
+const presentSidebarToggle = document.getElementById('present-sidebar-toggle') as HTMLButtonElement
 
 type Slide = {
   type: 'title' | 'content'
@@ -22,6 +25,8 @@ let active = false
 export function initPresent() {
   presentToggle.addEventListener('click', enterPresent)
   presentClose.addEventListener('click', exitPresent)
+  presentSidebarToggle.addEventListener('click', togglePresentSidebar)
+  presentSidebarBackdrop.addEventListener('click', closePresentSidebar)
 
   const handleKey = (e: KeyboardEvent) => {
     if (!active) return
@@ -50,6 +55,8 @@ export function initPresent() {
   return () => {
     presentToggle.removeEventListener('click', enterPresent)
     presentClose.removeEventListener('click', exitPresent)
+    presentSidebarToggle.removeEventListener('click', togglePresentSidebar)
+    presentSidebarBackdrop.removeEventListener('click', closePresentSidebar)
     document.removeEventListener('keydown', handleKey, true)
   }
 }
@@ -128,6 +135,60 @@ function hasVisibleContent(html: string): boolean {
   return temp.querySelector('img, table, pre, svg') !== null
 }
 
+function renderPresentSidebar() {
+  presentSidebar.innerHTML = ''
+
+  for (let i = 0; i < slides.length; i++) {
+    const slide = slides[i]
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'present-sidebar-item'
+    if (i === currentSlide) button.classList.add('active')
+
+    const title = document.createElement('span')
+    title.className = 'present-sidebar-title'
+    title.textContent = slide.heading || 'Untitled'
+    button.appendChild(title)
+
+    if (slide.preview) {
+      const preview = document.createElement('span')
+      preview.className = 'present-sidebar-preview'
+      preview.textContent = slide.preview
+      button.appendChild(preview)
+    }
+
+    button.addEventListener('click', () => {
+      goTo(i)
+      closePresentSidebar()
+    })
+
+    presentSidebar.appendChild(button)
+  }
+}
+
+function updateSidebarActive() {
+  const items = presentSidebar.children
+  for (let i = 0; i < items.length; i++) {
+    items[i].classList.toggle('active', i === currentSlide)
+  }
+}
+
+function togglePresentSidebar() {
+  const isOpen = !presentSidebar.classList.contains('hidden')
+  if (isOpen) {
+    closePresentSidebar()
+  } else {
+    renderPresentSidebar()
+    presentSidebar.classList.remove('hidden')
+    presentSidebarBackdrop.classList.remove('hidden')
+  }
+}
+
+function closePresentSidebar() {
+  presentSidebar.classList.add('hidden')
+  presentSidebarBackdrop.classList.add('hidden')
+}
+
 function enterPresent() {
   slides = buildSlides()
   if (slides.length === 0) return
@@ -147,6 +208,7 @@ function exitPresent() {
   presentOverlay.classList.add('hidden')
   document.body.style.overflow = ''
   hideTooltip()
+  closePresentSidebar()
 }
 
 function goTo(index: number) {
@@ -154,6 +216,7 @@ function goTo(index: number) {
   currentSlide = index
   renderSlide()
   updateActiveDot()
+  updateSidebarActive()
 }
 
 function renderDots() {
