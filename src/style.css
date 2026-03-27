@@ -483,7 +483,7 @@ body.drag-over .landing-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  z-index: 101;
+  z-index: 201;
   opacity: 0.5;
   transition: opacity 0.2s ease, color 0.2s ease, transform 0.24s ease;
 }

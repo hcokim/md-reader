@@ -79,11 +79,26 @@ export function initDropzone(ready: Promise<void>) {
   const handleShortcut = (e: KeyboardEvent) => {
     const hasSidebarContent = sessionFiles.length > 1 || outlineItems.length > 0
     if (!hasSidebarContent) return
-    if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
     if (isTypingTarget(e.target)) return
 
-    e.preventDefault()
-    toggleSidebar()
+    if (e.key === 'Escape' && !isSidebarCollapsed) {
+      e.preventDefault()
+      dismissSidebarIfNarrow()
+      return
+    }
+
+    if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault()
+      toggleSidebar()
+    }
+  }
+
+  const narrowQuery = window.matchMedia('(max-width: 900px)')
+  const handleViewportChange = () => {
+    if (narrowQuery.matches && !isSidebarCollapsed) {
+      isSidebarCollapsed = true
+    }
+    renderSidebar()
   }
 
   openLink.addEventListener('click', handleOpenClick)
@@ -93,6 +108,7 @@ export function initDropzone(ready: Promise<void>) {
   document.body.addEventListener('drop', handleDrop)
   sidebarToggle.addEventListener('click', handleSidebarToggle)
   sidebarBackdrop.addEventListener('click', dismissSidebarIfNarrow)
+  narrowQuery.addEventListener('change', handleViewportChange)
   document.addEventListener('keydown', handleShortcut)
 
   return () => {
@@ -103,6 +119,7 @@ export function initDropzone(ready: Promise<void>) {
     document.body.removeEventListener('drop', handleDrop)
     sidebarToggle.removeEventListener('click', handleSidebarToggle)
     sidebarBackdrop.removeEventListener('click', dismissSidebarIfNarrow)
+    narrowQuery.removeEventListener('change', handleViewportChange)
     document.removeEventListener('keydown', handleShortcut)
   }
 }
