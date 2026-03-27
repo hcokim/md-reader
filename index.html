@@ -12,16 +12,31 @@
     <!-- State A: Landing -->
     <div id="landing">
       <div class="landing-inner">
-        <svg class="landing-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-          <rect x="12" y="4" width="40" height="52" rx="4" stroke="currentColor" stroke-width="2.5" fill="none"/>
-          <path d="M22 20h20M22 28h20M22 36h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          <path d="M32 46 l0 10M26 52 l6 6 l6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <svg class="landing-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+          <polyline points="10 9 9 9 8 9"/>
         </svg>
         <h1 class="landing-title">Drop a Markdown file here</h1>
-        <p class="landing-sub">or <a href="#" id="open-link">click to open</a></p>
-        <form id="url-form" autocomplete="off">
-          <input type="url" id="url-input" placeholder="Paste a URL" aria-label="Paste a URL" />
-        </form>
+        <p class="landing-or">or</p>
+        <div class="landing-actions">
+          <button type="button" id="open-link" class="landing-action-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+              <polyline points="13 2 13 9 20 9"/>
+            </svg>
+            Choose file(s)
+          </button>
+          <form id="url-form" class="landing-action-url" autocomplete="off">
+            <svg class="landing-action-url-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>
+            <input type="url" id="url-input" placeholder="Paste a URL" aria-label="Paste a URL" />
+          </form>
+        </div>
       </div>
       <input type="file" id="file-input" accept=".md,.markdown,.mdx,.txt" multiple hidden />
     </div>
