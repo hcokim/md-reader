@@ -16,7 +16,11 @@
   scrollbar-color: transparent transparent;
 }
 
-*:hover {
+#content:hover,
+#file-sidebar:hover,
+#present-slide:hover,
+#present-sidebar:hover,
+#present-dots:hover {
   scrollbar-color: color-mix(in srgb, var(--fg) 15%, transparent) transparent;
 }
 
@@ -34,7 +38,11 @@
   border-radius: 3px;
 }
 
-*:hover::-webkit-scrollbar-thumb {
+#content:hover::-webkit-scrollbar-thumb,
+#file-sidebar:hover::-webkit-scrollbar-thumb,
+#present-slide:hover::-webkit-scrollbar-thumb,
+#present-sidebar:hover::-webkit-scrollbar-thumb,
+#present-dots:hover::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--fg) 15%, transparent);
 }
 

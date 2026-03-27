@@ -67,21 +67,30 @@ function buildSlides(): Slide[] {
 
   const result: Slide[] = []
   let stack: { level: number; title: string }[] = []
-  let currentFragments: string[] = []
+  let bodyElements: HTMLElement[] = []
   let currentHeading = ''
   let currentLevel = 0
 
   const flush = () => {
-    if (currentHeading === '' && currentFragments.length === 0) return
+    if (currentHeading === '' && bodyElements.length === 0) return
 
-    const html = currentFragments.join('')
-    const hasContent = hasVisibleContent(html)
+    const html = bodyElements.map((el) => el.outerHTML).join('')
+
+    // Extract text and check for visible content in a single pass
+    let bodyText = ''
+    let hasContent = false
+    for (const el of bodyElements) {
+      const text = el.textContent?.trim() || ''
+      if (text.length > 0) hasContent = true
+      if (!hasContent && el.querySelector('img, table, pre, svg')) hasContent = true
+      if (bodyText.length < 80) bodyText += (bodyText ? ' ' : '') + text
+    }
+
+    const preview = bodyText.length > 80 ? bodyText.slice(0, 80) + '\u2026' : bodyText
 
     const breadcrumb = stack
       .filter((s) => s.level < currentLevel)
       .map((s) => s.title)
-
-    const preview = buildPreview(html)
 
     result.push({
       type: hasContent ? 'content' : 'title',
@@ -91,7 +100,7 @@ function buildSlides(): Slide[] {
       preview,
     })
 
-    currentFragments = []
+    bodyElements = []
   }
 
   for (const el of children) {
@@ -109,30 +118,12 @@ function buildSlides(): Slide[] {
       currentHeading = title
       currentLevel = level
     } else {
-      currentFragments.push(el.outerHTML)
+      bodyElements.push(el)
     }
   }
 
   flush()
   return result
-}
-
-function buildPreview(html: string): string {
-  if (!html.trim()) return ''
-  const temp = document.createElement('div')
-  temp.innerHTML = html
-  const text = temp.textContent?.trim() || ''
-  if (text.length <= 80) return text
-  return text.slice(0, 80) + '\u2026'
-}
-
-function hasVisibleContent(html: string): boolean {
-  if (!html.trim()) return false
-  const temp = document.createElement('div')
-  temp.innerHTML = html
-  const text = temp.textContent?.trim() || ''
-  if (text.length > 0) return true
-  return temp.querySelector('img, table, pre, svg') !== null
 }
 
 function renderPresentSidebar() {

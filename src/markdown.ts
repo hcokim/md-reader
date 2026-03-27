@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
 import { fromHighlighter } from '@shikijs/markdown-it/core'
 import { createHighlighterCore } from 'shiki/core'
@@ -67,5 +68,8 @@ export async function initMarkdown(): Promise<void> {
 }
 
 export function render(text: string): string {
-  return md.render(text)
+  return DOMPurify.sanitize(md.render(text), {
+    ADD_TAGS: ['section'],
+    ADD_ATTR: ['class', 'style'],
+  })
 }

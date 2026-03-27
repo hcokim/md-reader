@@ -166,6 +166,21 @@ async function loadUrl(input: string) {
   if (!/^https?:\/\//i.test(targetUrl)) {
     targetUrl = `https://${targetUrl}`
   }
+
+  // Validate URL structure
+  let parsed: URL
+  try {
+    parsed = new URL(targetUrl)
+  } catch {
+    urlInput.value = ''
+    urlInput.placeholder = 'Invalid URL'
+    setTimeout(() => { urlInput.placeholder = 'Paste a URL' }, 3000)
+    return
+  }
+
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return
+  if (!parsed.hostname.includes('.')) return
+
   const defuddlePath = targetUrl.replace(/^https?:\/\//i, '')
 
   urlInput.disabled = true
@@ -192,7 +207,7 @@ async function loadUrl(input: string) {
     }
 
     // Strip YAML frontmatter before rendering
-    const markdown = text.replace(/^---\s*\n[\s\S]*?\n---\s*\n/, '')
+    const markdown = text.replace(/^---\s*\n[\s\S]*?\n---\s*(?:\n|$)/, '')
 
     const file: SessionFile = {
       id: buildFileId(),
@@ -378,5 +393,5 @@ function showReader(fileName: string) {
   reader.classList.remove('hidden')
   settingsToggle.classList.remove('hidden')
   presentToggle.classList.remove('hidden')
-  document.title = fileName
+  document.title = fileName.length > 100 ? fileName.slice(0, 100) + '\u2026' : fileName
 }
