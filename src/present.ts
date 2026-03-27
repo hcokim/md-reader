@@ -296,7 +296,7 @@ function renderSlide() {
     })
   })
 
-  presentSlide.scrollTop = 0
+  presentOverlay.scrollTop = 0
 }
 
 function escapeHtml(text: string) {
