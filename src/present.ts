@@ -271,7 +271,7 @@ function renderSlide() {
   presentCounter.textContent = `${currentSlide + 1} / ${slides.length}`
 
   const breadcrumbHtml = slide.breadcrumb.length > 0
-    ? `<div class="present-breadcrumb">${slide.breadcrumb.map(escapeHtml).join(' <span class="present-breadcrumb-sep">/</span> ')}</div>`
+    ? `<div class="present-breadcrumb">${slide.breadcrumb.map((b, i) => `<span class="present-breadcrumb-level" style="--depth:${i}">${i > 0 ? '<span class="present-breadcrumb-sep">›</span> ' : ''}${escapeHtml(b)}</span>`).join('')}</div>`
     : ''
 
   if (slide.type === 'title') {
