@@ -21,9 +21,17 @@ const highlightAction = document.getElementById('annotation-highlight-action') a
 const commentAction = document.getElementById('annotation-comment-action') as HTMLButtonElement
 const removeAction = document.getElementById('annotation-remove-action') as HTMLButtonElement
 const feedback = document.getElementById('annotation-feedback')!
+const selectionPreview = document.getElementById('annotation-selection-preview')!
 const commentPopover = document.getElementById('annotation-comment-popover')!
 const commentInput = document.getElementById('annotation-comment-input') as HTMLTextAreaElement
 const commentDelete = document.getElementById('annotation-comment-delete') as HTMLButtonElement
+
+type SelectionPreviewRect = {
+  top: number
+  left: number
+  width: number
+  height: number
+}
 
 type PendingSelection = {
   quote: string
@@ -33,6 +41,7 @@ type PendingSelection = {
   sourceStart: number
   sourceEnd: number
   rect: DOMRect
+  previewRects: SelectionPreviewRect[]
 }
 
 type AnnotationSurface = {
@@ -132,6 +141,7 @@ export function initAnnotations() {
     clearBrowserSelection()
     clearPendingState()
     hideSelectionFeedback()
+    hideToolbar()
     closeCommentPopover()
     updateActiveFileText(nextSource)
   }
@@ -161,6 +171,7 @@ export function initAnnotations() {
 
     clearPendingState()
     hideSelectionFeedback()
+    hideToolbar()
     closeCommentPopover()
     updateActiveFileText(nextSource)
   }
@@ -429,6 +440,7 @@ function resolveSelectionCandidate(
       sourceStart: mappedSelection.selection.sourceStart,
       sourceEnd: mappedSelection.selection.sourceEnd,
       rect,
+      previewRects: getPreviewRects(range, rect),
     },
     reason: null,
   }
@@ -456,6 +468,28 @@ function getVisibleRect(range: Range) {
 
   const [firstRect] = Array.from(range.getClientRects())
   return firstRect ?? null
+}
+
+function getPreviewRects(range: Range, fallbackRect: DOMRect): SelectionPreviewRect[] {
+  const rects = Array.from(range.getClientRects())
+    .filter((rect) => rect.width > 0 && rect.height > 0)
+    .map((rect) => ({
+      top: rect.top,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height,
+    }))
+
+  if (rects.length > 0) {
+    return rects
+  }
+
+  return [{
+    top: fallbackRect.top,
+    left: fallbackRect.left,
+    width: fallbackRect.width,
+    height: fallbackRect.height,
+  }]
 }
 
 function getRangeOffsets(range: Range, root: HTMLElement) {
@@ -547,6 +581,32 @@ function hideSelectionFeedback() {
   feedback.classList.add('hidden')
 }
 
+function showSelectionPreview(rects: SelectionPreviewRect[]) {
+  selectionPreview.innerHTML = ''
+
+  if (rects.length === 0) {
+    selectionPreview.classList.add('hidden')
+    return
+  }
+
+  for (const rect of rects) {
+    const element = document.createElement('div')
+    element.className = 'annotation-selection-preview-rect'
+    element.style.top = `${rect.top}px`
+    element.style.left = `${rect.left}px`
+    element.style.width = `${rect.width}px`
+    element.style.height = `${rect.height}px`
+    selectionPreview.appendChild(element)
+  }
+
+  selectionPreview.classList.remove('hidden')
+}
+
+function hideSelectionPreview() {
+  selectionPreview.innerHTML = ''
+  selectionPreview.classList.add('hidden')
+}
+
 function getSelectionFailureMessage(reason: string | SourceSelectionFailureReason | null) {
   switch (reason) {
     case 'different-dom-blocks':
@@ -589,6 +649,7 @@ function openCommentPopoverForCreate(selection: PendingSelection) {
     mode: 'create',
     selection,
   }
+  showSelectionPreview(selection.previewRects)
   commentPopover.classList.remove('hidden')
   commentInput.value = ''
   resizeCommentInput()
@@ -606,6 +667,7 @@ function openCommentPopoverForEdit(
   focusInput: boolean,
 ) {
   openCommentId = comment.id
+  hideSelectionPreview()
   commentPopoverSession = {
     mode: 'edit',
     commentId: comment.id,
@@ -635,6 +697,7 @@ function dismissCommentPopover() {
 function closeCommentPopover() {
   openCommentId = null
   commentPopoverSession = null
+  hideSelectionPreview()
   commentPopover.classList.add('hidden')
 }
 

@@ -773,6 +773,20 @@ body.drag-over .landing-icon {
   z-index: 1004;
 }
 
+.annotation-selection-preview {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1003;
+}
+
+.annotation-selection-preview-rect {
+  position: fixed;
+  background: color-mix(in srgb, var(--link) 9%, transparent);
+  border-radius: 0.28em;
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--link) 26%, transparent);
+}
+
 .annotation-comment-popover {
   position: fixed;
   top: 0;
