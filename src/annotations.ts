@@ -1,34 +1,96 @@
+import { getActiveFileText, updateActiveFileText } from './active-file.ts'
+import {
+  applyMarkdownComment,
+  applyMarkdownHighlight,
+  removeMarkdownComment,
+  removeMarkdownHighlight,
+  updateMarkdownComment,
+} from './markdown-editor.ts'
+import type { MarkdownComment } from './markdown-model.ts'
+import { getActiveMarkdownDocument } from './markdown-state.ts'
+import {
+  mapRangeToSourceSelectionDetailed,
+  prepareSourceMappedBlocks,
+  type SourceSelectionFailureReason,
+} from './selection-mapper.ts'
+
 const content = document.getElementById('content')!
+const presentSlide = document.getElementById('present-slide')!
 const toolbar = document.getElementById('annotation-toolbar')!
 const highlightAction = document.getElementById('annotation-highlight-action') as HTMLButtonElement
+const commentAction = document.getElementById('annotation-comment-action') as HTMLButtonElement
 const removeAction = document.getElementById('annotation-remove-action') as HTMLButtonElement
-
-type HighlightAnnotation = {
-  id: string
-  kind: 'highlight'
-  quote: string
-  occurrence: number
-}
+const commentPopover = document.getElementById('annotation-comment-popover')!
+const commentInput = document.getElementById('annotation-comment-input') as HTMLTextAreaElement
+const commentDelete = document.getElementById('annotation-comment-delete') as HTMLButtonElement
 
 type PendingSelection = {
   quote: string
-  occurrence: number
+  blockId: string
+  startInBlock: number
+  endInBlock: number
+  sourceStart: number
+  sourceEnd: number
   rect: DOMRect
 }
 
-type TextPoint = {
-  node: Text
-  offset: number
+type AnnotationSurface = {
+  root: HTMLElement
+  baseStart: number
 }
 
+type CommentPopoverSession =
+  | {
+    mode: 'create'
+    selection: PendingSelection
+  }
+  | {
+    mode: 'edit'
+    commentId: string
+    initialComment: string
+  }
+
 const BLOCK_SELECTOR = 'p, li, blockquote, td, th, h1, h2, h3, h4, h5, h6, pre, figcaption'
-const annotationsByDocument = new Map<string, HighlightAnnotation[]>()
+const COMMENT_TARGET_SELECTOR = 'mark.markdown-comment-target[data-md-comment-id]'
+const DEV = typeof import.meta !== 'undefined' && import.meta.env?.DEV
 let activeDocumentId: string | null = null
 let pendingSelection: PendingSelection | null = null
-let activeHighlightId: string | null = null
+let activeMarkdownHighlight: PendingSelection | null = null
+let openCommentId: string | null = null
+let commentPopoverSession: CommentPopoverSession | null = null
 let selectionInProgress = false
+let lastRejectedSelectionSignature: string | null = null
 
 export function initAnnotations() {
+  const syncPendingSelectionFromDom = (options: { showSelectionToolbar: boolean }) => {
+    const selection = document.getSelection()
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+      pendingSelection = null
+      if (!activeMarkdownHighlight) hideToolbar()
+      return null
+    }
+
+    const result = resolveSelectionCandidate(selection.getRangeAt(0))
+    if (!result.candidate) {
+      pendingSelection = null
+      if (!activeMarkdownHighlight) hideToolbar()
+      logRejectedSelection(selection, result.reason)
+      return null
+    }
+
+    pendingSelection = result.candidate
+    activeMarkdownHighlight = null
+    lastRejectedSelectionSignature = null
+
+    if (options.showSelectionToolbar) {
+      showToolbar(result.candidate.rect, 'selection')
+    } else {
+      hideToolbar()
+    }
+
+    return result.candidate
+  }
+
   const handleSelectionChange = () => {
     if (isReadOnlyViewport()) {
       clearPendingState()
@@ -36,91 +98,115 @@ export function initAnnotations() {
       return
     }
 
-    const selection = document.getSelection()
-    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
-      pendingSelection = null
-      if (!activeHighlightId) hideToolbar()
-      return
-    }
-
-    const candidate = getSelectionCandidate(selection.getRangeAt(0))
-    if (!candidate) {
-      pendingSelection = null
-      if (!activeHighlightId) hideToolbar()
-      return
-    }
-
-    pendingSelection = candidate
-    activeHighlightId = null
-    if (!selectionInProgress) {
-      showToolbar(candidate.rect, 'highlight')
-    } else {
-      hideToolbar()
-    }
+    syncPendingSelectionFromDom({ showSelectionToolbar: !selectionInProgress })
   }
 
   const handleHighlightClick = () => {
-    if (!activeDocumentId || !pendingSelection) return
+    if (!pendingSelection) return
 
-    const highlights = getAnnotations(activeDocumentId)
-    const exists = highlights.some((annotation) =>
-      annotation.quote === pendingSelection!.quote && annotation.occurrence === pendingSelection!.occurrence)
+    const source = getActiveFileText()
+    if (!source) return
 
-    if (!exists) {
-      highlights.push({
-        id: buildAnnotationId(),
-        kind: 'highlight',
-        quote: pendingSelection.quote,
-        occurrence: pendingSelection.occurrence,
-      })
-    }
+    const nextSource = applyMarkdownHighlight(source, {
+      start: pendingSelection.sourceStart,
+      end: pendingSelection.sourceEnd,
+    })
 
     clearBrowserSelection()
     clearPendingState()
-    renderActiveAnnotations()
+    closeCommentPopover()
+    updateActiveFileText(nextSource)
+  }
+
+  const handleCommentClick = () => {
+    const selection = pendingSelection ?? activeMarkdownHighlight
+    if (!selection) return
+
+    clearBrowserSelection()
+    pendingSelection = null
+    activeMarkdownHighlight = null
+    hideToolbar()
+    openCommentPopoverForCreate(selection)
   }
 
   const handleRemoveClick = () => {
-    if (!activeDocumentId || !activeHighlightId) return
+    if (!activeMarkdownHighlight) return
 
-    const remaining = getAnnotations(activeDocumentId).filter((annotation) => annotation.id !== activeHighlightId)
-    annotationsByDocument.set(activeDocumentId, remaining)
+    const source = getActiveFileText()
+    if (!source) return
+
+    const nextSource = removeMarkdownHighlight(source, {
+      start: activeMarkdownHighlight.sourceStart,
+      end: activeMarkdownHighlight.sourceEnd,
+    })
+
     clearPendingState()
-    renderActiveAnnotations()
+    closeCommentPopover()
+    updateActiveFileText(nextSource)
   }
 
-  const handleContentClick = (event: MouseEvent) => {
+  const handleSurfaceClick = (event: MouseEvent) => {
     if (isReadOnlyViewport()) return
 
     const target = event.target as HTMLElement | null
-    const highlight = target?.closest<HTMLElement>('.annotation-highlight')
-    if (!highlight || !content.contains(highlight)) return
+    const commentTarget = target?.closest<HTMLElement>(COMMENT_TARGET_SELECTOR)
+    if (commentTarget && isAnnotationElement(commentTarget)) {
+      const commentId = commentTarget.dataset.mdCommentId
+      const comment = commentId ? getMarkdownCommentById(commentId) : null
+      if (!comment) return
 
-    const annotationId = highlight.dataset.annotationId
-    if (!annotationId) return
+      event.preventDefault()
+      event.stopPropagation()
+      clearBrowserSelection()
+      clearPendingState()
+      hideToolbar()
+      openCommentPopoverForEdit(comment, commentTarget.getBoundingClientRect(), false)
+      return
+    }
+
+    const nativeHighlight = target?.closest<HTMLElement>('mark')
+    if (!nativeHighlight || !isNativeHighlightElement(nativeHighlight)) return
+
+    const highlightRange = createTextRangeForElement(nativeHighlight)
+    const candidate = highlightRange
+      ? resolveSelectionCandidate(highlightRange, { allowNativeHighlight: true }).candidate
+      : null
+    if (!candidate) return
 
     event.preventDefault()
     event.stopPropagation()
     clearBrowserSelection()
     pendingSelection = null
-    activeHighlightId = annotationId
-    showToolbar(highlight.getBoundingClientRect(), 'remove')
+    activeMarkdownHighlight = candidate
+    closeCommentPopover()
+    showToolbar(nativeHighlight.getBoundingClientRect(), 'highlight')
   }
 
   const handleDocumentPointerDown = (event: MouseEvent) => {
     const target = event.target as Node | null
     if (!target) return
-    if (toolbar.contains(target)) return
+    if (toolbar.contains(target) || commentPopover.contains(target)) return
 
-    if (event.button === 0 && content.contains(target)) {
+    dismissCommentPopover()
+
+    if (event.button === 0 && isAnnotationSurfaceNode(target)) {
       selectionInProgress = true
     }
 
-    const highlight = target instanceof HTMLElement ? target.closest('.annotation-highlight') : null
-    if (highlight) return
+    const commentTarget = target instanceof HTMLElement ? target.closest<HTMLElement>(COMMENT_TARGET_SELECTOR) : null
+    if (commentTarget && isAnnotationElement(commentTarget)) {
+      return
+    }
 
-    if (content.contains(target)) {
-      activeHighlightId = null
+    const nativeHighlightElement = target instanceof HTMLElement ? target.closest<HTMLElement>('mark') : null
+    if (nativeHighlightElement && isNativeHighlightElement(nativeHighlightElement)) {
+      return
+    }
+
+    if (isAnnotationSurfaceNode(target)) {
+      pendingSelection = null
+      activeMarkdownHighlight = null
+      hideToolbar()
       return
     }
 
@@ -132,12 +218,8 @@ export function initAnnotations() {
     if (!selectionInProgress) return
     selectionInProgress = false
 
-    if (!pendingSelection || activeHighlightId) return
-
     requestAnimationFrame(() => {
-      if (pendingSelection && !activeHighlightId) {
-        showToolbar(pendingSelection.rect, 'highlight')
-      }
+      syncPendingSelectionFromDom({ showSelectionToolbar: true })
     })
   }
 
@@ -145,15 +227,52 @@ export function initAnnotations() {
     event.preventDefault()
   }
 
+  const handleCommentKeyDown = (event: KeyboardEvent) => {
+    event.stopPropagation()
+  }
+
   const handleEscape = (event: KeyboardEvent) => {
     if (event.key !== 'Escape') return
+
+    if (!commentPopover.classList.contains('hidden')) {
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      dismissCommentPopover()
+      return
+    }
+
     clearPendingState()
     hideToolbar()
+  }
+
+  const handleCommentInput = () => {
+    resizeCommentInput()
+  }
+
+  const handleCommentDelete = () => {
+    if (!commentPopoverSession) return
+
+    if (commentPopoverSession.mode === 'create') {
+      closeCommentPopover()
+      return
+    }
+
+    const source = getActiveFileText()
+    const comment = getMarkdownCommentById(commentPopoverSession.commentId)
+    if (!source || !comment) {
+      closeCommentPopover()
+      return
+    }
+
+    const nextSource = removeMarkdownComment(source, comment)
+    closeCommentPopover()
+    updateActiveFileText(nextSource)
   }
 
   const hideFloatingUi = () => {
     clearPendingState()
     hideToolbar()
+    dismissCommentPopover()
   }
 
   document.addEventListener('selectionchange', handleSelectionChange)
@@ -164,8 +283,13 @@ export function initAnnotations() {
   window.addEventListener('resize', hideFloatingUi)
   toolbar.addEventListener('pointerdown', handleToolbarPointerDown)
   highlightAction.addEventListener('click', handleHighlightClick)
+  commentAction.addEventListener('click', handleCommentClick)
   removeAction.addEventListener('click', handleRemoveClick)
-  content.addEventListener('click', handleContentClick)
+  commentInput.addEventListener('input', handleCommentInput)
+  commentInput.addEventListener('keydown', handleCommentKeyDown)
+  commentDelete.addEventListener('click', handleCommentDelete)
+  content.addEventListener('click', handleSurfaceClick)
+  presentSlide.addEventListener('click', handleSurfaceClick)
 
   return () => {
     document.removeEventListener('selectionchange', handleSelectionChange)
@@ -176,91 +300,124 @@ export function initAnnotations() {
     window.removeEventListener('resize', hideFloatingUi)
     toolbar.removeEventListener('pointerdown', handleToolbarPointerDown)
     highlightAction.removeEventListener('click', handleHighlightClick)
+    commentAction.removeEventListener('click', handleCommentClick)
     removeAction.removeEventListener('click', handleRemoveClick)
-    content.removeEventListener('click', handleContentClick)
+    commentInput.removeEventListener('input', handleCommentInput)
+    commentInput.removeEventListener('keydown', handleCommentKeyDown)
+    commentDelete.removeEventListener('click', handleCommentDelete)
+    content.removeEventListener('click', handleSurfaceClick)
+    presentSlide.removeEventListener('click', handleSurfaceClick)
   }
 }
 
 export function setActiveAnnotationDocument(documentId: string | null) {
   activeDocumentId = documentId
   clearPendingState()
-  renderActiveAnnotations()
+  closeCommentPopover()
+  syncCommentPopover()
 }
 
 export function refreshAnnotations() {
-  renderActiveAnnotations()
+  const presentSource = presentSlide.querySelector<HTMLElement>('.present-source')
+  if (presentSource) {
+    prepareAnnotationBlocks(presentSource)
+  }
+  syncCommentPopover()
 }
 
 export function hideAnnotationToolbar() {
   clearPendingState()
   hideToolbar()
+  closeCommentPopover()
 }
 
-function renderActiveAnnotations() {
-  hideToolbar()
-  unwrapHighlights()
-
-  if (!activeDocumentId) return
-
-  const highlights = getAnnotations(activeDocumentId)
-  if (highlights.length === 0) return
-
-  const text = content.textContent ?? ''
-  const resolved = highlights
-    .map((annotation) => {
-      const offsets = findOccurrenceOffsets(text, annotation.quote, annotation.occurrence)
-      if (!offsets) return null
-      return { annotation, ...offsets }
-    })
-    .filter((entry): entry is { annotation: HighlightAnnotation; start: number; end: number } => entry !== null)
-    .sort((a, b) => b.start - a.start)
-
-  let lastWrappedStart = Number.POSITIVE_INFINITY
-
-  for (const entry of resolved) {
-    if (entry.end > lastWrappedStart) continue
-
-    const range = createRangeFromOffsets(entry.start, entry.end)
-    if (!range || range.collapsed) continue
-
-    wrapHighlightRange(range, entry.annotation.id)
-    lastWrappedStart = entry.start
-  }
+export function prepareAnnotationBlocks(root: HTMLElement) {
+  prepareMarkdownCommentTargets(root)
+  prepareSourceMappedBlocks(root)
 }
 
-function getSelectionCandidate(range: Range): PendingSelection | null {
-  if (!activeDocumentId || range.collapsed) return null
-  if (!content.contains(range.commonAncestorContainer)) return null
-
-  const startBlock = getSelectionBlock(range.startContainer)
-  const endBlock = getSelectionBlock(range.endContainer)
-  if (!startBlock || startBlock !== endBlock) return null
-
-  if (getHighlightAncestor(range.startContainer) || getHighlightAncestor(range.endContainer)) {
-    return null
+function resolveSelectionCandidate(
+  range: Range,
+  options: { allowNativeHighlight?: boolean } = {},
+): { candidate: PendingSelection | null; reason: string | null } {
+  if (!activeDocumentId || range.collapsed) {
+    return { candidate: null, reason: 'inactive-document' }
   }
 
-  const fragment = range.cloneContents()
-  if (fragment.querySelector('.annotation-highlight')) {
-    return null
+  const startSurface = getSelectionSurface(range.startContainer)
+  const endSurface = getSelectionSurface(range.endContainer)
+  if (!startSurface || !endSurface || startSurface.root !== endSurface.root) {
+    return { candidate: null, reason: 'different-surfaces' }
+  }
+
+  const startBlock = getSelectionBlock(range.startContainer, startSurface.root)
+  const endBlock = getSelectionBlock(range.endContainer, startSurface.root)
+  if (!startBlock || startBlock !== endBlock) {
+    return { candidate: null, reason: 'different-dom-blocks' }
+  }
+
+  if (
+    isCommentTargetNode(range.startContainer, startSurface.root)
+    || isCommentTargetNode(range.endContainer, startSurface.root)
+    || (!options.allowNativeHighlight && getNativeHighlightAncestor(range.startContainer, startSurface.root))
+    || (!options.allowNativeHighlight && getNativeHighlightAncestor(range.endContainer, startSurface.root))
+  ) {
+    return { candidate: null, reason: 'inside-existing-annotation' }
   }
 
   const text = range.toString()
   const quote = text.trim()
-  if (!quote) return null
+  if (!quote) {
+    return { candidate: null, reason: 'empty-quote' }
+  }
 
-  const offsets = getRangeOffsets(range)
+  const mappedSelection = mapRangeToSourceSelectionDetailed(range, startSurface.root)
+  if (!mappedSelection.selection) {
+    return { candidate: null, reason: mappedSelection.reason }
+  }
+
+  const blockOffsets = getRangeOffsets(range, startBlock)
   const leadingWhitespace = text.length - text.trimStart().length
   const trailingWhitespace = text.length - text.trimEnd().length
-  const start = offsets.start + leadingWhitespace
-  const end = offsets.end - trailingWhitespace
-  if (end <= start) return null
+  const startInBlock = blockOffsets.start + leadingWhitespace
+  const endInBlock = blockOffsets.end - trailingWhitespace
+  if (endInBlock <= startInBlock) {
+    return { candidate: null, reason: 'invalid-block-offsets' }
+  }
 
-  const occurrence = countOccurrencesBefore(content.textContent ?? '', quote, start)
   const rect = getVisibleRect(range)
-  if (!rect) return null
+  if (!rect) {
+    return { candidate: null, reason: 'missing-visible-rect' }
+  }
 
-  return { quote, occurrence, rect }
+  return {
+    candidate: {
+      quote,
+      blockId: mappedSelection.selection.block.id,
+      startInBlock,
+      endInBlock,
+      sourceStart: mappedSelection.selection.sourceStart,
+      sourceEnd: mappedSelection.selection.sourceEnd,
+      rect,
+    },
+    reason: null,
+  }
+}
+
+function logRejectedSelection(selection: Selection | null, reason: string | SourceSelectionFailureReason | null) {
+  if (!DEV || !selection || !reason) return
+
+  const text = selection.toString().trim()
+  if (!text) return
+
+  const signature = `${reason}:${text}`
+  if (signature === lastRejectedSelectionSignature) return
+  lastRejectedSelectionSignature = signature
+
+  console.debug('[annotations] selection rejected', {
+    reason,
+    text,
+  })
 }
 
 function getVisibleRect(range: Range) {
@@ -271,13 +428,13 @@ function getVisibleRect(range: Range) {
   return firstRect ?? null
 }
 
-function getRangeOffsets(range: Range) {
+function getRangeOffsets(range: Range, root: HTMLElement) {
   const startRange = document.createRange()
-  startRange.selectNodeContents(content)
+  startRange.selectNodeContents(root)
   startRange.setEnd(range.startContainer, range.startOffset)
 
   const endRange = document.createRange()
-  endRange.selectNodeContents(content)
+  endRange.selectNodeContents(root)
   endRange.setEnd(range.endContainer, range.endOffset)
 
   return {
@@ -286,152 +443,57 @@ function getRangeOffsets(range: Range) {
   }
 }
 
-function getSelectionBlock(node: Node) {
-  let element = node instanceof Element ? node : node.parentElement
-  if (!element) return null
-
-  const block = element.closest<HTMLElement>(BLOCK_SELECTOR)
-  if (block && content.contains(block)) return block
-
-  while (element && element.parentElement !== content) {
-    element = element.parentElement
+function getSelectionSurface(node: Node): AnnotationSurface | null {
+  if (content.contains(node)) {
+    return { root: content, baseStart: 0 }
   }
 
-  return element && content.contains(element) ? element : null
-}
-
-function getHighlightAncestor(node: Node) {
   const element = node instanceof Element ? node : node.parentElement
-  if (!element) return null
-  const highlight = element.closest<HTMLElement>('.annotation-highlight')
-  return highlight && content.contains(highlight) ? highlight : null
-}
-
-function countOccurrencesBefore(text: string, quote: string, limit: number) {
-  if (!quote) return 0
-
-  let count = 0
-  let from = 0
-
-  while (from < limit) {
-    const index = text.indexOf(quote, from)
-    if (index === -1 || index >= limit) break
-    count += 1
-    from = index + Math.max(quote.length, 1)
-  }
-
-  return count
-}
-
-function findOccurrenceOffsets(text: string, quote: string, occurrence: number) {
-  if (!quote) return null
-
-  let count = 0
-  let from = 0
-
-  while (from <= text.length) {
-    const index = text.indexOf(quote, from)
-    if (index === -1) return null
-
-    if (count === occurrence) {
-      return {
-        start: index,
-        end: index + quote.length,
-      }
-    }
-
-    count += 1
-    from = index + Math.max(quote.length, 1)
+  const source = element?.closest<HTMLElement>('.present-source')
+  if (source && presentSlide.contains(source)) {
+    const baseStart = Number(source.dataset.slideStart ?? '0')
+    return { root: source, baseStart }
   }
 
   return null
 }
 
-function createRangeFromOffsets(start: number, end: number) {
-  const startPoint = findTextPoint(start)
-  const endPoint = findTextPoint(end)
-  if (!startPoint || !endPoint) return null
+function getSelectionBlock(node: Node, root: HTMLElement) {
+  let element = node instanceof Element ? node : node.parentElement
+  if (!element) return null
 
-  const range = document.createRange()
-  range.setStart(startPoint.node, startPoint.offset)
-  range.setEnd(endPoint.node, endPoint.offset)
-  return range
-}
+  const block = element.closest<HTMLElement>(BLOCK_SELECTOR)
+  if (block && root.contains(block)) return block
 
-function findTextPoint(targetOffset: number): TextPoint | null {
-  const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT)
-  let offset = 0
-  let lastText: Text | null = null
-
-  while (walker.nextNode()) {
-    const textNode = walker.currentNode as Text
-    const length = textNode.data.length
-    const nextOffset = offset + length
-
-    if (targetOffset <= nextOffset) {
-      return {
-        node: textNode,
-        offset: targetOffset - offset,
-      }
-    }
-
-    offset = nextOffset
-    lastText = textNode
+  while (element && element.parentElement !== root) {
+    element = element.parentElement
   }
 
-  if (!lastText) return null
-
-  return {
-    node: lastText,
-    offset: lastText.data.length,
-  }
+  return element instanceof HTMLElement && root.contains(element) ? element : null
 }
 
-function wrapHighlightRange(range: Range, annotationId: string) {
-  const fragment = range.extractContents()
-  const highlight = document.createElement('span')
-  highlight.className = 'annotation-highlight'
-  highlight.dataset.annotationId = annotationId
-  highlight.appendChild(fragment)
-  range.insertNode(highlight)
+function getNativeHighlightAncestor(node: Node, root: HTMLElement) {
+  const element = node instanceof Element ? node : node.parentElement
+  if (!element) return null
+  const highlight = element.closest<HTMLElement>('mark')
+  return highlight && root.contains(highlight) ? highlight : null
 }
 
-function unwrapHighlights() {
-  const highlights = Array.from(content.querySelectorAll<HTMLElement>('.annotation-highlight'))
-
-  for (const highlight of highlights) {
-    const parent = highlight.parentNode
-    if (!parent) continue
-
-    while (highlight.firstChild) {
-      parent.insertBefore(highlight.firstChild, highlight)
-    }
-
-    parent.removeChild(highlight)
-    parent.normalize()
-  }
+function isCommentTargetNode(node: Node, root: HTMLElement) {
+  const element = node instanceof Element ? node : node.parentElement
+  if (!element) return null
+  const commentTarget = element.closest<HTMLElement>(COMMENT_TARGET_SELECTOR)
+  return commentTarget && root.contains(commentTarget) ? commentTarget : null
 }
 
-function getAnnotations(documentId: string) {
-  const existing = annotationsByDocument.get(documentId)
-  if (existing) return existing
-
-  const next: HighlightAnnotation[] = []
-  annotationsByDocument.set(documentId, next)
-  return next
-}
-
-function showToolbar(anchorRect: DOMRect, mode: 'highlight' | 'remove') {
+function showToolbar(anchorRect: DOMRect, mode: 'selection' | 'highlight') {
   toolbar.classList.remove('hidden')
-  highlightAction.classList.toggle('hidden', mode !== 'highlight')
-  removeAction.classList.toggle('hidden', mode !== 'remove')
+  highlightAction.classList.toggle('hidden', mode !== 'selection')
+  commentAction.classList.toggle('hidden', false)
+  removeAction.classList.toggle('hidden', mode === 'selection')
 
   const toolbarRect = toolbar.getBoundingClientRect()
-  let top = anchorRect.top - toolbarRect.height - 12
-  if (top < 12) {
-    top = anchorRect.bottom + 12
-  }
-
+  const top = getFloatingTop(anchorRect, toolbarRect.height)
   let left = anchorRect.left + anchorRect.width / 2 - toolbarRect.width / 2
   left = Math.max(12, Math.min(left, window.innerWidth - toolbarRect.width - 12))
 
@@ -443,9 +505,277 @@ function hideToolbar() {
   toolbar.classList.add('hidden')
 }
 
+function openCommentPopoverForCreate(selection: PendingSelection) {
+  openCommentId = null
+  commentPopoverSession = {
+    mode: 'create',
+    selection,
+  }
+  commentPopover.classList.remove('hidden')
+  commentInput.value = ''
+  resizeCommentInput()
+  positionCommentPopover(selection.rect)
+
+  requestAnimationFrame(() => {
+    commentInput.focus()
+    commentInput.setSelectionRange(commentInput.value.length, commentInput.value.length)
+  })
+}
+
+function openCommentPopoverForEdit(
+  comment: MarkdownComment,
+  anchorRect: DOMRect,
+  focusInput: boolean,
+) {
+  openCommentId = comment.id
+  commentPopoverSession = {
+    mode: 'edit',
+    commentId: comment.id,
+    initialComment: comment.comment,
+  }
+  commentPopover.classList.remove('hidden')
+  commentInput.value = comment.comment
+  resizeCommentInput()
+  positionCommentPopover(anchorRect)
+
+  if (focusInput) {
+    requestAnimationFrame(() => {
+      commentInput.focus()
+      commentInput.setSelectionRange(commentInput.value.length, commentInput.value.length)
+    })
+  }
+}
+
+function dismissCommentPopover() {
+  const nextSource = finalizeCommentPopover()
+  closeCommentPopover()
+  if (nextSource) {
+    updateActiveFileText(nextSource)
+  }
+}
+
+function closeCommentPopover() {
+  openCommentId = null
+  commentPopoverSession = null
+  commentPopover.classList.add('hidden')
+}
+
+function finalizeCommentPopover() {
+  if (!commentPopoverSession) return null
+
+  const source = getActiveFileText()
+  if (!source) return null
+
+  const nextComment = commentInput.value.trim()
+  if (commentPopoverSession.mode === 'create') {
+    if (!nextComment) return null
+
+    return applyMarkdownComment(source, {
+      start: commentPopoverSession.selection.sourceStart,
+      end: commentPopoverSession.selection.sourceEnd,
+    }, nextComment)
+  }
+
+  const comment = getMarkdownCommentById(commentPopoverSession.commentId)
+  if (!comment) return null
+  if (!nextComment) {
+    return removeMarkdownComment(source, comment)
+  }
+  if (nextComment === commentPopoverSession.initialComment.trim()) {
+    return null
+  }
+
+  return updateMarkdownComment(source, comment, nextComment)
+}
+
+function syncCommentPopover() {
+  if (!commentPopoverSession || commentPopoverSession.mode !== 'edit' || !openCommentId) return
+
+  const comment = getMarkdownCommentById(openCommentId)
+  if (!comment) {
+    closeCommentPopover()
+    return
+  }
+
+  const anchor = getCommentTargetElement(comment.id)
+  if (!anchor) {
+    closeCommentPopover()
+    return
+  }
+
+  if (document.activeElement !== commentInput) {
+    commentInput.value = comment.comment
+  }
+
+  commentPopover.classList.remove('hidden')
+  resizeCommentInput()
+  positionCommentPopover(anchor.getBoundingClientRect())
+}
+
+function positionCommentPopover(anchorRect: DOMRect) {
+  const margin = 12
+  const popoverRect = commentPopover.getBoundingClientRect()
+  const spaceAbove = anchorRect.top - margin
+  const spaceBelow = window.innerHeight - anchorRect.bottom - margin
+  const placeBelow = spaceBelow >= spaceAbove
+
+  let top = placeBelow
+    ? anchorRect.bottom + margin
+    : anchorRect.top - popoverRect.height - margin
+
+  if (placeBelow && top + popoverRect.height > window.innerHeight - margin) {
+    top = Math.max(margin, window.innerHeight - popoverRect.height - margin)
+  }
+
+  if (!placeBelow && top < margin) {
+    top = Math.min(window.innerHeight - popoverRect.height - margin, anchorRect.bottom + margin)
+  }
+
+  let left = anchorRect.left + anchorRect.width / 2 - popoverRect.width / 2
+  left = Math.max(margin, Math.min(left, window.innerWidth - popoverRect.width - margin))
+
+  commentPopover.style.left = `${left}px`
+  commentPopover.style.top = `${top}px`
+}
+
+function getFloatingTop(anchorRect: DOMRect, floatingHeight: number) {
+  const margin = 12
+  let top = anchorRect.top - floatingHeight - margin
+  if (top < margin) {
+    top = anchorRect.bottom + margin
+  }
+  return top
+}
+
+function prepareMarkdownCommentTargets(root: HTMLElement) {
+  const footnoteRefs = Array.from(root.querySelectorAll<HTMLElement>('sup.footnote-ref'))
+  if (footnoteRefs.length === 0) {
+    cleanupEmptyFootnoteSections(root)
+    return
+  }
+
+  const document = getActiveMarkdownDocument()
+  if (!document || document.comments.length === 0) {
+    cleanupEmptyFootnoteSections(root)
+    return
+  }
+
+  const commentPairs = Array.from(root.querySelectorAll<HTMLElement>('mark'))
+    .map((mark) => {
+      const ref = getAttachedFootnoteRef(mark)
+      if (!ref) return null
+      return { mark, ref }
+    })
+    .filter((pair): pair is { mark: HTMLElement; ref: HTMLElement } => pair !== null)
+
+  for (let index = 0; index < commentPairs.length && index < document.comments.length; index += 1) {
+    const pair = commentPairs[index]
+    const comment = document.comments[index]
+    const footnoteLink = pair.ref.querySelector<HTMLAnchorElement>('a[href^="#fn"]')
+    const footnoteTarget = footnoteLink?.getAttribute('href')
+
+    pair.mark.classList.add('markdown-comment-target')
+    pair.mark.dataset.mdCommentId = comment.id
+    pair.ref.remove()
+
+    if (footnoteTarget) {
+      root.querySelector<HTMLElement>(footnoteTarget)?.remove()
+    }
+  }
+
+  cleanupEmptyFootnoteSections(root)
+  renumberFootnotes(root)
+}
+
+function cleanupEmptyFootnoteSections(root: HTMLElement) {
+  const footnoteLists = Array.from(root.querySelectorAll<HTMLOListElement>('.footnotes-list'))
+  for (const list of footnoteLists) {
+    if (list.children.length > 0) continue
+
+    const section = list.closest<HTMLElement>('.footnotes')
+    section?.remove()
+  }
+
+  root.querySelectorAll<HTMLElement>('.footnotes-sep').forEach((separator) => {
+    const nextFootnotes = separator.nextElementSibling
+    if (!nextFootnotes || !nextFootnotes.matches('.footnotes')) {
+      separator.remove()
+      return
+    }
+
+    const list = nextFootnotes.querySelector('.footnotes-list')
+    if (!list || list.children.length === 0) {
+      separator.remove()
+    }
+  })
+}
+
+function renumberFootnotes(root: HTMLElement) {
+  const refs = Array.from(root.querySelectorAll<HTMLAnchorElement>('sup.footnote-ref > a'))
+  const items = Array.from(root.querySelectorAll<HTMLElement>('.footnotes .footnote-item'))
+  const total = Math.min(refs.length, items.length)
+
+  for (let index = 0; index < total; index += 1) {
+    const footnoteNumber = index + 1
+    const ref = refs[index]
+    const item = items[index]
+
+    ref.href = `#fn${footnoteNumber}`
+    ref.id = `fnref${footnoteNumber}`
+    ref.textContent = `[${footnoteNumber}]`
+
+    item.id = `fn${footnoteNumber}`
+    item.querySelectorAll<HTMLAnchorElement>('a.footnote-backref').forEach((backref) => {
+      backref.href = `#fnref${footnoteNumber}`
+    })
+  }
+}
+
+function getAttachedFootnoteRef(mark: HTMLElement) {
+  const sibling = mark.nextElementSibling
+  if (sibling instanceof HTMLElement && sibling.matches('sup.footnote-ref')) {
+    return sibling
+  }
+
+  return null
+}
+
+function getCommentTargetElement(commentId: string) {
+  const presentSource = presentSlide.querySelector<HTMLElement>('.present-source')
+  const presentComment = presentSource?.querySelector<HTMLElement>(`${COMMENT_TARGET_SELECTOR}[data-md-comment-id="${commentId}"]`)
+  if (presentComment) return presentComment
+
+  return content.querySelector<HTMLElement>(`${COMMENT_TARGET_SELECTOR}[data-md-comment-id="${commentId}"]`)
+}
+
+function getMarkdownCommentById(commentId: string) {
+  const document = getActiveMarkdownDocument()
+  return document?.comments.find((comment) => comment.id === commentId) ?? null
+}
+
+function isAnnotationSurfaceNode(node: Node) {
+  return content.contains(node) || presentSlide.contains(node)
+}
+
+function isAnnotationElement(element: HTMLElement) {
+  return content.contains(element) || presentSlide.contains(element)
+}
+
+function isNativeHighlightElement(element: HTMLElement) {
+  return element.tagName === 'MARK' && isAnnotationElement(element)
+}
+
+function createTextRangeForElement(element: HTMLElement) {
+  if (!element.firstChild) return null
+
+  const range = document.createRange()
+  range.selectNodeContents(element)
+  return range
+}
+
 function clearPendingState() {
   pendingSelection = null
-  activeHighlightId = null
+  activeMarkdownHighlight = null
   selectionInProgress = false
 }
 
@@ -453,14 +783,11 @@ function clearBrowserSelection() {
   document.getSelection()?.removeAllRanges()
 }
 
-function isReadOnlyViewport() {
-  return window.matchMedia('(pointer: coarse)').matches
+function resizeCommentInput() {
+  commentInput.style.height = '0px'
+  commentInput.style.height = `${Math.max(commentInput.scrollHeight, 160)}px`
 }
 
-function buildAnnotationId() {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID()
-  }
-
-  return `annotation-${Date.now()}`
+function isReadOnlyViewport() {
+  return window.matchMedia('(pointer: coarse)').matches
 }

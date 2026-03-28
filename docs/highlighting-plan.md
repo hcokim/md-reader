@@ -1,424 +1,267 @@
-# Highlighting And Comments Plan
+# Markdown-First Highlighting And Comments Plan
 
 ## Goal
 
-Add lightweight annotations to the markdown reader so a user can:
+Move highlighting and comments to a markdown-native model so the raw markdown string is the single source of truth for:
 
-- highlight selected text while reading
-- attach a short comment to a selected range
-- use the feature during presentation without cluttering the default UI
+- reader view
+- presentation view
+- eventual save/export back to disk
 
-The interaction target is Notion-like:
+That means annotations should no longer live as a separate DOM overlay system. Instead, user actions should become markdown edits, and both views should rerender from the updated markdown.
 
-- the user selects text
-- a small contextual action bar appears near the selection
-- actions stay mostly hidden when the user is not actively annotating
+## Product Direction
 
-## What The Current App Already Gives Us
+### Canonical syntax
 
-The current app is simple enough that this feature can fit without a large refactor:
+- highlights use `==highlighted text==`
+- comments use markdown footnotes
 
-- markdown is rendered once into `#content`
-- the active file lives in memory as raw markdown text
-- local files can already be opened with `FileSystemFileHandle`
-- session restore already keeps file handles in IndexedDB
-- presentation mode builds slides from the rendered DOM, not from a separate data model
+The first implementation should use referenced footnotes so the source-position parser can model them reliably:
 
-That last point matters: if highlights/comments should appear in presentation mode, annotations need to survive both normal reader rendering and the presentation slide cloning path.
+```md
+==Selected text==[^comment-1]
 
-## Recommendation
+[^comment-1]: Short presenter note
+```
 
-Build this in two steps.
+## Why The Current Approach Keeps Breaking
 
-### V1 recommendation
+The current implementation tries to anchor annotations against rendered DOM in two different surfaces:
 
-Ship annotations as a separate app-owned layer first.
+- the normal reader DOM
+- the presentation DOM, which is built from cloned rendered HTML
 
-- keep annotations in memory for the current app session only
-- anchor them to selected text ranges in the rendered document
-- show highlights in reader and presentation mode
-- show comments in reader mode, but keep them optional or hidden by default in presentation mode
+That creates the recurring bugs we have already seen:
 
-This avoids the hardest problems up front:
+- selection drift
+- list corruption
+- presentation-only regressions
+- comment and highlight ranges attaching to the wrong characters
 
-- no destructive file editing
-- no save button in the first version
-- no persistence model to get right yet
-- no need to invent markdown comment syntax
-- works for both local files and URL-loaded content
+The root issue is architectural: the app has multiple runtime document models, but no single canonical source model for annotations.
 
-### V2 option
+## New Architecture
 
-If you later want durable, portable annotations, add an explicit export/save flow:
+### Source of truth
 
-- export annotations to a sidecar JSON file, or
-- write them back to disk using the File System Access API for local files only
-- offer a user-invoked `Save annotations into file` action rather than doing this automatically
+The canonical document state should be:
 
-I do not recommend writing comments/highlights directly into the markdown source in the first implementation. Plain Markdown has no standard inline comment/highlight syntax, and modifying source text will create ugly content, merge churn, and difficult range maintenance.
+- raw markdown text
+- a parsed markdown model with source positions
 
-## Persistence Options
+Everything else is derived from that:
 
-### Option A: Memory only
+- rendered reader HTML
+- rendered presentation HTML
+- outline/headings
+- annotation display
 
-Pros:
+### Rendering flow
 
-- simplest implementation
-- zero save UX
-- good for ephemeral presentations
+1. load markdown text
+2. parse markdown into a source-position-aware model
+3. render HTML from the markdown text
+4. build reader view from that render
+5. build presentation view from the same markdown text, not from annotation overlays
 
-Cons:
+### Annotation flow
 
-- annotations disappear on refresh
-- not useful for real reading workflows
+1. user selects rendered text
+2. app maps that selection back to source offsets in the markdown model
+3. app rewrites the markdown string
+4. app reparses and rerenders
+5. both reader and presentation update from the same markdown state
 
-### Option B: Browser-local persistence keyed to the document
-
-Pros:
-
-- best V1 tradeoff
-- no file mutation
-- supports local files and fetched URLs
-- no extra buttons needed
-
-Cons:
-
-- annotations stay on the current browser/device only
-- users may assume they are saved "into the file" when they are not
-
-### Option C: Sidecar file such as `document.md-reader.json`
-
-Pros:
-
-- portable
-- explicit
-- avoids modifying markdown source
-
-Cons:
-
-- requires save/export/import UX
-- awkward for URLs and files without write permission
-
-### Option D: Write directly into the markdown file
-
-Pros:
-
-- annotations travel with the file
-
-Cons:
-
-- source pollution
-- no standard markdown semantics for comments/highlights
-- fragile selection mapping after edits
-- requires permission upgrades and explicit save handling
-
-Recommended decision: `Option A` for the first implementation, with a later path to `Option B` or `Option C` once the interaction model feels right.
-Longer-term direction: keep an explicit save-to-file option on the roadmap, but defer both persistence and save UI until after the annotation UX is proven.
-
-## Proposed Product Shape
-
-### Reader view
-
-- text selection reveals a floating action bar near the selection
-- actions: `Highlight`, `Comment`, `Remove`
-- highlights render inline with a subtle background color
-- commented ranges also get a small comment marker
-- clicking a commented range opens a compact popover with the note
-- if we need a persistent summary, use a collapsible right-side comments panel only after the core interaction works
-
-### Presentation view
-
-- highlights should render by default
-- comments should be hidden by default
-- comments should not open automatically on slides
-- comment capture during presentation is a real use case, but the input/display model is still open
-- comments can appear on click/tap, or be hidden behind a presenter-only toggle later
-
-This keeps slides clean while preserving presenter context when needed.
-
-### Mobile
-
-- mobile can be view-only in V1
-- annotation creation and editing can wait for a later phase
-- if we later support comment viewing on mobile, use a bottom sheet or centered popover, not tiny inline affordances
+This replaces “apply highlight spans into the DOM” with “edit markdown, then rerender”.
 
 ## Data Model
 
-Use annotations that are independent from markdown syntax.
+Use markdown itself for persistence, plus a parsed model for editing operations.
 
 ```ts
-type Annotation = {
+type MarkdownDocumentModel = {
+  source: string
+  blocks: MarkdownBlock[]
+  headings: MarkdownHeading[]
+}
+
+type MarkdownBlock = {
   id: string
-  kind: 'highlight' | 'comment'
-  comment?: string
-  color: 'yellow'
-  anchor: {
-    quote: string
-    contextBefore: string
-    contextAfter: string
-    pathHint?: string[]
-    startOffset?: number
-    endOffset?: number
+  kind: 'heading' | 'paragraph' | 'code' | 'table' | 'html' | 'thematic-break'
+  range: {
+    start: { line: number; column: number; offset: number }
+    end: { line: number; column: number; offset: number }
   }
-  createdAt: string
-  updatedAt: string
+  source: string
+  text: string
+  context: {
+    listDepth: number
+    quoteDepth: number
+    insideFootnote: boolean
+  }
 }
 ```
 
-### Why anchor by quote instead of raw DOM index only
+The important shift is that highlights/comments are no longer stored as a separate annotation object with fuzzy DOM anchors. They exist because the markdown contains `==...==` and footnotes.
 
-The rendered DOM changes when:
+## UI Implications
 
-- headings get ids rebuilt
-- markdown is re-rendered after file reload
-- presentation mode clones the rendered HTML
+### Reader view
 
-Quote-based anchoring with some surrounding context is more resilient than storing only DOM node indexes. We can still keep path or offset hints as a faster first attempt before falling back to quote matching.
+- text selection still opens a contextual toolbar
+- `Highlight` wraps the selected source range in `==`
+- `Comment` inserts footnote syntax anchored to that selected range
+- clicking highlighted/commented text can still open a lightweight popover for editing or removal
 
-## Document Identity
+### Presentation view
 
-For V1 we only need enough document identity to keep annotation state attached while the app is open.
+- presentation is no longer a special annotation surface
+- it just renders the same markdown-derived content
+- highlights show automatically because `<mark>` is part of the render
+- comments can stay visually hidden by default, but they should come from the same markdown source
 
-For local files and plain uploads:
+This is the main fix for presentation-specific drift.
 
-- key state by the app's in-memory file id
+### Mobile
 
-For URL-loaded content:
+- still view-only for creation in V1
+- since markdown is canonical, view behavior stays consistent with desktop
 
-- key state by the app's in-memory file id for the fetched article
+## Editing Strategy
 
-If we later add persistence, we can upgrade this to use file metadata, hashes, or canonical URLs.
+### Highlights
 
-## Rendering Strategy
+Preferred first implementation:
 
-Do not inject annotation markup into the source markdown string.
+- only allow highlight insertion when the selection maps cleanly to one source block
+- wrap that source slice with `==` delimiters
 
-Instead:
+Example:
 
-1. render markdown as usual
-2. resolve stored annotations against the rendered DOM
-3. wrap matching text ranges in span markers such as:
-
-```html
-<span class="annotation annotation-highlight" data-annotation-id="...">...</span>
+```md
+before selected text after
 ```
 
-4. attach event handlers for comment popovers and selection actions
+becomes:
 
-This should happen every time the active file is rendered or refreshed.
+```md
+before ==selected text== after
+```
 
-## Suggested Technical Shape
+### Comments
 
-Add a small annotation subsystem instead of mixing everything into `dropzone.ts`.
+Preferred first implementation:
 
-- `src/annotations/store.ts`
-  in-memory annotation state and document identity
-- `src/annotations/selection.ts`
-  selection reading, range validation, contextual toolbar placement
-- `src/annotations/anchors.ts`
-  create and resolve quote-based anchors
-- `src/annotations/render.ts`
-  apply annotation spans to `#content`
-- `src/annotations/comments.ts`
-  popover or sheet behavior for comment display
-- `src/annotations/types.ts`
-  shared types
+- select text
+- choose `Comment`
+- open the existing popover editor
+- when the user confirms, wrap the span in `==...==` and append a referenced footnote
 
-Then wire it into the existing flow:
+Example:
 
-- after `content.innerHTML = render(file.text)` in the reader path
-- after file polling re-renders the current file
-- when presentation mode copies slide HTML into the slide container
+```md
+selected text
+```
+
+becomes:
+
+```md
+==selected text==[^comment-1]
+
+[^comment-1]: Presenter reminder
+```
+
+This keeps the saved format markdown-native while still giving the renderer a visible anchor for the comment target.
+
+## What Changes In The Codebase
+
+### Keep
+
+- `src/dropzone.ts` session/file loading
+- `src/present.ts` general slideshow shell
+- `src/markdown.ts` renderer
+
+### Add
+
+- `src/markdown-model.ts`
+  parse markdown with source positions and expose block metadata
+- `src/markdown-editor.ts`
+  pure functions that apply markdown edits such as highlight insertion and comment insertion
+- `src/selection-mapper.ts`
+  map DOM selections back to source blocks and source offsets
+
+### Replace
+
+The current DOM-overlay annotation subsystem in `src/annotations.ts` should be retired in phases:
+
+- stop treating DOM spans as persisted annotation state
+- keep only the contextual selection UI pieces that are still useful
+- route actions into markdown edits instead of DOM mutation
 
 ## Implementation Phases
 
-### Phase 1: Annotation foundation
+### Phase 1: Foundation
 
-- add annotation types and document identity logic
-- add an in-memory store scoped to the current app session
-- implement selection parsing from the rendered content area
-- reject selections that cross unsupported blocks if needed
-
-Deliverable:
-
-- selection can be turned into an annotation object and restored while navigating within the current session
-
-### Phase 2: Highlight rendering
-
-- resolve annotation anchors against rendered DOM
-- wrap matched ranges with highlight spans
-- add contextual toolbar with `Highlight` and `Remove`
-- re-apply annotations after every render and file refresh
+- render `==...==` as `<mark>`
+- add a markdown model with source positions and block extraction
+- keep markdown as active file state, not DOM annotations
 
 Deliverable:
 
-- highlights working in reader view for the current session
+- a reliable source-aware document model exists for every loaded file
 
-### Phase 3: Comments
+### Phase 2: Reader highlight rewrite
 
-- add `Comment` action to the toolbar
-- open an input popover or compact composer
-- render commented ranges with a distinct treatment
-- open note popover on click/tap
-
-Deliverable:
-
-- comments working in reader view for the current session without adding permanent chrome
-
-### Phase 4: Presentation integration
-
-- ensure slide HTML includes annotation spans
-- decide whether comments are hidden, tappable, or presenter-only
-- tune highlight colors for slide readability across themes
+- map desktop selections in reader view back to a source block
+- insert `==` into markdown
+- rerender from markdown
+- remove DOM highlight persistence for reader mode
 
 Deliverable:
 
-- highlights work during presentation without degrading slide clarity
+- reader highlights are created by editing markdown, not by wrapping DOM nodes
 
-### Phase 5: Mobile polish
+### Phase 3: Comment rewrite
 
-- dock annotation actions to the bottom on narrow screens
-- increase hit areas for comment markers
-- verify selection and dismissal behavior on iOS Safari and Android Chrome
-
-Deliverable:
-
-- annotation flows are usable on touch devices
-
-### Phase 6: Optional save/export work
-
-- add browser-local persistence if we want annotations to survive refreshes
-- add sidecar export or file-write support if you want portability
-- request `readwrite` permission only when the user explicitly saves
-- handle file reload conflicts when the markdown source changes underneath stored annotations
+- convert `Comment` into markdown footnote insertion
+- keep the current popover as the text-entry UI
+- rerender from markdown after insertion or deletion
 
 Deliverable:
 
-- explicit persistence outside the browser, if needed
+- comments are markdown-native and survive rerender without special anchoring logic
 
-## Questions To Resolve Before Building
+### Phase 4: Presentation alignment
 
-These are the decisions that change the implementation enough that we should settle them first.
+- stop using presentation as a separate annotation target
+- reuse the same markdown-derived source mapping or make presentation creation read-only until the source-mapped path is stable
+- ensure presentation rerenders from the same markdown state after edits
 
-### 1. What is the persistence contract?
+Deliverable:
 
-Choose one:
+- presentation reflects the same canonical content without separate annotation bugs
 
-- browser-local only for V1
-- exportable sidecar files
-- direct markdown file writes
+### Phase 5: Save/export
 
-Current direction:
+- once the markdown edit pipeline feels right, add explicit save/write support for local files
+- use the existing `FileSystemFileHandle` flow for user-invoked writes only
 
-- in-memory or single-session state for V1
-- focus first on getting highlighting and comments right
-- no save UI in V1
-- explicit save-to-file option later
-- no automatic writes into the markdown file
+Deliverable:
 
-### 2. Should highlights and comments appear in presentation mode?
+- annotations can be written back into the markdown file intentionally
 
-This is really two decisions:
+## Immediate Open Questions
 
-- should highlights be visible on slides
-- should comments be visible on slides
+These are the only product questions that still matter before full implementation:
 
-Current direction:
+- If a user highlights text that already contains markdown formatting, do we allow wrapping it immediately or only support plain-text spans first?
+- In presentation mode, do we allow new annotations immediately once source-mapped editing is stable, or make presentation view-only until then?
 
-- highlights: yes
-- comments: hidden by default
-- open question: how comment authoring should work while actively presenting
+None of those block the foundation work.
 
-### 3. Are comments reader-facing or presenter-facing?
+## Recommendation
 
-If comments are mainly presenter notes, they should probably stay subdued in reader mode and mostly hidden in presentation mode.
+Proceed with a markdown-first refactor now.
 
-If comments are collaborative reading notes, we may want a comment list or sidebar later.
-
-### 4. Do you want annotations to survive markdown edits?
-
-If yes, we should invest more in resilient anchoring and conflict handling.
-
-If no, we can treat annotations as valid only for the current content version.
-
-My recommendation: aim for best-effort survival across small edits, but do not block V1 on perfect rebasing.
-
-### 5. Should URL-loaded articles support annotations?
-
-The app already supports URLs, so excluding them would feel inconsistent.
-
-My recommendation: yes for session-only annotations in V1, no for save/export in V1.
-
-### 6. What is the mobile expectation?
-
-Choose one:
-
-- fully supported in V1
-- read-only on mobile in V1
-- create and view comments/highlights on mobile in V2
-
-Current direction: read-only on mobile in V1.
-
-### 7. Do we need multiple highlight colors?
-
-Single-color highlighting keeps the data model and UI much simpler.
-
-My recommendation: one highlight color in V1.
-
-### 8. Do we need a visible list of comments?
-
-If comments are sparse, inline popovers are enough.
-
-If comments are frequent, a panel becomes useful.
-
-Current direction:
-
-- comments should generally live off to the side
-- a centralized comments sidebar is deferred for now
-- do not block V1 on a full comment index
-
-## Decisions Locked So Far
-
-- V1 annotation state should be in memory for the current session only.
-- We should focus on getting the annotation UX right before adding persistence.
-- We should keep an eventual explicit option to save annotations back into the file.
-- Highlights should appear in presentation mode.
-- Comments should be hidden by default in presentation mode.
-- Mobile can be view-only in V1.
-- Comments should generally appear off to the side rather than as heavy inline UI.
-- A centralized comment sidebar can be deferred.
-
-## Still Open
-
-- What exact save-to-file format should we support later: direct markdown mutation, sidecar export, or both?
-- How should comment authoring work during presentation without cluttering slides?
-- Should reader comments open as anchored side popovers, a slim side rail, or something else?
-- How much should annotations survive underlying markdown edits?
-
-## Risks
-
-- DOM-range annotation logic can get tricky across nested markdown markup like links, emphasis, inline code, and footnotes.
-- Reapplying annotations after file polling may fail if the file content changes significantly.
-- Presentation mode may need extra styling so highlight colors remain readable across themes.
-- Mobile browser selection APIs are inconsistent enough that this needs real device testing.
-
-## Minimal Decision Set Needed To Start
-
-We can begin implementation with the current decisions.
-
-The remaining questions do not block a V1 foundation if we scope the first build to:
-
-1. in-memory annotation state for the current session
-2. highlight creation in reader view
-3. highlight visibility in presentation mode
-4. comment data model plus basic reader-side display hooks
-
-If you want the fastest path, I would lock the following:
-
-- in-memory annotation state only for V1
-- persistence and save UI deferred until later
-- highlights visible in presentation mode
-- comments visible in reader mode, hidden by default in presentation mode
-- single highlight color
-- comments shown off to the side in a lightweight way
-- no markdown file writes in V1
+Do not keep investing in DOM-anchored annotations as the persistence model. They are already fighting the app structure, and they will make eventual save/export harder rather than easier.

@@ -21,8 +21,14 @@
     "katex": "^0.16.38",
     "markdown-it": "^14.1.1",
     "markdown-it-footnote": "^4.0.0",
+    "markdown-it-mark": "^4.0.0",
     "markdown-it-task-lists": "^2.1.1",
     "markdown-it-texmath": "^1.0.0",
-    "shiki": "^4.0.2"
+    "remark-gfm": "^4.0.1",
+    "remark-mark-highlight": "^0.1.1",
+    "remark-parse": "^11.0.0",
+    "remark-stringify": "^11.0.0",
+    "shiki": "^4.0.2",
+    "unified": "^11.0.5"
   }
 }

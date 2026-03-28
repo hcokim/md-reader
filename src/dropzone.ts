@@ -1,5 +1,8 @@
 import { render } from './markdown.ts'
-import { setActiveAnnotationDocument } from './annotations.ts'
+import { prepareAnnotationBlocks, setActiveAnnotationDocument } from './annotations.ts'
+import { registerActiveFileBridge } from './active-file.ts'
+import { setActiveMarkdownDocument, updateMarkdownDocument } from './markdown-state.ts'
+import { rerenderPresentation } from './present.ts'
 
 const landing = document.getElementById('landing')!
 const reader = document.getElementById('reader')!
@@ -114,6 +117,10 @@ async function openFilePicker(e: MouseEvent) {
 
 export function initDropzone(ready: Promise<void>) {
   markdownReady = ready
+  registerActiveFileBridge({
+    getText: getActiveFileText,
+    updateText: updateActiveFileText,
+  })
 
   // Check for a restorable session and show the button if available
   void loadSession().then((handles) => {
@@ -504,8 +511,38 @@ function setActiveFile(fileId: string) {
   renderSidebar()
 }
 
+export function getActiveFileText(): string | null {
+  if (!activeFileId) return null
+  return sessionFiles.find((entry) => entry.id === activeFileId)?.text ?? null
+}
+
+export function updateActiveFileText(nextText: string): boolean {
+  if (!activeFileId) return false
+
+  const file = sessionFiles.find((entry) => entry.id === activeFileId)
+  if (!file || file.text === nextText) return false
+
+  file.text = nextText
+
+  const scrollParent = content.parentElement
+  const scrollPos = scrollParent?.scrollTop ?? 0
+
+  renderSessionFile(file)
+  renderSidebar()
+  rerenderPresentation()
+
+  if (scrollParent) {
+    scrollParent.scrollTop = scrollPos
+  }
+
+  return true
+}
+
 function renderSessionFile(file: SessionFile) {
+  updateMarkdownDocument(file.id, file.text)
+  setActiveMarkdownDocument(file.id)
   content.innerHTML = render(file.text)
+  prepareAnnotationBlocks(content)
   outlineItems = buildOutline()
   setActiveAnnotationDocument(file.id)
 }

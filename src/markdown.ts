@@ -6,6 +6,7 @@ import type { HighlighterGeneric } from 'shiki'
 import { createOnigurumaEngine } from 'shiki/engine/oniguruma'
 import texmath from 'markdown-it-texmath'
 import footnote from 'markdown-it-footnote'
+import mark from 'markdown-it-mark'
 import taskLists from 'markdown-it-task-lists'
 import katex from 'katex'
 
@@ -63,6 +64,7 @@ export async function initMarkdown(): Promise<void> {
     delimiters: 'dollars',
   })
 
+  md.use(mark)
   md.use(footnote)
   md.use(taskLists, { enabled: false, label: true })
 }

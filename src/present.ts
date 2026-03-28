@@ -1,4 +1,4 @@
-import { hideAnnotationToolbar } from './annotations.ts'
+import { hideAnnotationToolbar, refreshAnnotations } from './annotations.ts'
 
 const content = document.getElementById('content')!
 const presentOverlay = document.getElementById('present-overlay')!
@@ -13,6 +13,7 @@ const presentSidebarBackdrop = document.getElementById('present-sidebar-backdrop
 const presentSidebarToggle = document.getElementById('present-sidebar-toggle') as HTMLButtonElement
 const presentPrevZone = document.getElementById('present-prev-zone')!
 const presentNextZone = document.getElementById('present-next-zone')!
+const commentInput = document.getElementById('annotation-comment-input') as HTMLTextAreaElement
 
 type Slide = {
   type: 'title' | 'content'
@@ -20,6 +21,7 @@ type Slide = {
   breadcrumb: string[]
   html: string
   preview: string
+  startOffset: number
 }
 
 let slides: Slide[] = []
@@ -52,6 +54,10 @@ export function initPresent() {
     }
 
     if (!active) return
+
+    if (isTyping(e.target) || document.activeElement === commentInput) {
+      return
+    }
 
     if (e.key === 'Escape') {
       e.preventDefault()
@@ -86,6 +92,20 @@ export function initPresent() {
   }
 }
 
+export function rerenderPresentation() {
+  if (!active) return
+
+  slides = buildSlides()
+  if (slides.length === 0) {
+    exitPresent()
+    return
+  }
+
+  currentSlide = Math.min(currentSlide, slides.length - 1)
+  renderDots()
+  renderSlide()
+}
+
 function buildSlides(): Slide[] {
   const children = Array.from(content.children) as HTMLElement[]
   if (children.length === 0) return []
@@ -95,6 +115,8 @@ function buildSlides(): Slide[] {
   let bodyElements: HTMLElement[] = []
   let currentHeading = ''
   let currentLevel = 0
+  let textOffset = 0
+  let currentStartOffset = 0
 
   const flush = () => {
     if (currentHeading === '' && bodyElements.length === 0) return
@@ -123,12 +145,14 @@ function buildSlides(): Slide[] {
       breadcrumb,
       html,
       preview,
+      startOffset: currentStartOffset,
     })
 
     bodyElements = []
   }
 
   for (const el of children) {
+    const elementTextLength = el.textContent?.length ?? 0
     const match = el.tagName.match(/^H([1-6])$/)
 
     if (match) {
@@ -142,9 +166,15 @@ function buildSlides(): Slide[] {
 
       currentHeading = title
       currentLevel = level
+      currentStartOffset = textOffset
     } else {
+      if (currentHeading === '' && bodyElements.length === 0) {
+        currentStartOffset = textOffset
+      }
       bodyElements.push(el)
     }
+
+    textOffset += elementTextLength
   }
 
   flush()
@@ -301,11 +331,11 @@ function renderSlide() {
 
   if (slide.type === 'title') {
     presentSlide.className = 'present-slide present-slide-title'
-    presentSlide.innerHTML = `${breadcrumbHtml}<h1>${escapeHtml(slide.heading)}</h1>`
+    presentSlide.innerHTML = `${breadcrumbHtml}<div class="present-source" data-slide-start="${slide.startOffset}"><h1>${escapeHtml(slide.heading)}</h1></div>`
   } else {
     presentSlide.className = 'present-slide present-slide-content'
     const titleHtml = slide.heading ? `<h1>${escapeHtml(slide.heading)}</h1>` : ''
-    presentSlide.innerHTML = `${breadcrumbHtml}${titleHtml}<div class="present-body">${slide.html}</div>`
+    presentSlide.innerHTML = `${breadcrumbHtml}<div class="present-source" data-slide-start="${slide.startOffset}">${titleHtml}<div class="present-body">${slide.html}</div></div>`
   }
 
   presentSlide.querySelectorAll<HTMLElement>('.present-breadcrumb-level').forEach((el) => {
@@ -322,6 +352,7 @@ function renderSlide() {
   })
 
   presentOverlay.scrollTop = 0
+  refreshAnnotations()
 }
 
 function escapeHtml(text: string) {
