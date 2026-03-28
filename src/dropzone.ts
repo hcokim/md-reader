@@ -156,9 +156,18 @@ export function initDropzone(ready: Promise<void>) {
     if (items.length > 0 && 'getAsFileSystemHandle' in DataTransferItem.prototype) {
       const handlePromises = items.map((item) => item.getAsFileSystemHandle!())
       const results = await Promise.all(handlePromises)
-      const handles = results.filter(
-        (h): h is FileSystemFileHandle => h?.kind === 'file' && isReadableName(h.name)
-      )
+      const handles: FileSystemFileHandle[] = []
+      for (const h of results) {
+        if (h?.kind === 'file' && isReadableName(h.name)) {
+          handles.push(h as FileSystemFileHandle)
+        } else if (h?.kind === 'directory') {
+          for await (const entry of (h as FileSystemDirectoryHandle).values()) {
+            if (entry.kind === 'file' && isReadableName(entry.name)) {
+              handles.push(entry)
+            }
+          }
+        }
+      }
       if (handles.length > 0) {
         void loadFileHandles(handles)
         return

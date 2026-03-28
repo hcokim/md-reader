@@ -15,6 +15,12 @@ interface FileSystemFileHandle {
   requestPermission(descriptor?: { mode?: 'read' | 'readwrite' }): Promise<PermissionState>
 }
 
+interface FileSystemDirectoryHandle {
+  values(): AsyncIterableIterator<FileSystemFileHandle | FileSystemDirectoryHandle>
+  readonly kind: 'directory'
+  readonly name: string
+}
+
 declare module 'markdown-it-texmath' {
   import type MarkdownIt from 'markdown-it'
   const plugin: MarkdownIt.PluginSimple
