@@ -18,6 +18,8 @@ const commentInput = document.getElementById('annotation-comment-input') as HTML
 type Slide = {
   type: 'title' | 'content'
   heading: string
+  headingHtml: string
+  headingBlockId: string | null
   breadcrumb: string[]
   html: string
   preview: string
@@ -114,6 +116,8 @@ function buildSlides(): Slide[] {
   let stack: { level: number; title: string }[] = []
   let bodyElements: HTMLElement[] = []
   let currentHeading = ''
+  let currentHeadingHtml = ''
+  let currentHeadingBlockId: string | null = null
   let currentLevel = 0
   let textOffset = 0
   let currentStartOffset = 0
@@ -142,6 +146,8 @@ function buildSlides(): Slide[] {
     result.push({
       type: hasContent ? 'content' : 'title',
       heading: currentHeading,
+      headingHtml: currentHeadingHtml,
+      headingBlockId: currentHeadingBlockId,
       breadcrumb,
       html,
       preview,
@@ -165,6 +171,8 @@ function buildSlides(): Slide[] {
       stack.push({ level, title })
 
       currentHeading = title
+      currentHeadingHtml = el.innerHTML
+      currentHeadingBlockId = el.dataset.mdBlockId ?? null
       currentLevel = level
       currentStartOffset = textOffset
     } else {
@@ -328,13 +336,17 @@ function renderSlide() {
   const breadcrumbHtml = slide.breadcrumb.length > 0
     ? `<div class="present-breadcrumb">${slide.breadcrumb.map((b, i) => `<a class="present-breadcrumb-level" style="--depth:${i}" data-breadcrumb="${escapeHtml(b)}">${i > 0 ? '<span class="present-breadcrumb-sep">›</span> ' : ''}${escapeHtml(b)}</a>`).join('')}</div>`
     : ''
+  const headingAttrs = slide.headingBlockId
+    ? ` data-md-block-id="${escapeHtml(slide.headingBlockId)}" data-md-block-kind="heading"`
+    : ''
+  const headingHtml = slide.headingHtml || escapeHtml(slide.heading)
 
   if (slide.type === 'title') {
     presentSlide.className = 'present-slide present-slide-title'
-    presentSlide.innerHTML = `${breadcrumbHtml}<div class="present-source" data-slide-start="${slide.startOffset}"><h1>${escapeHtml(slide.heading)}</h1></div>`
+    presentSlide.innerHTML = `${breadcrumbHtml}<div class="present-source" data-slide-start="${slide.startOffset}"><h1${headingAttrs}>${headingHtml}</h1></div>`
   } else {
     presentSlide.className = 'present-slide present-slide-content'
-    const titleHtml = slide.heading ? `<h1>${escapeHtml(slide.heading)}</h1>` : ''
+    const titleHtml = slide.heading ? `<h1${headingAttrs}>${headingHtml}</h1>` : ''
     presentSlide.innerHTML = `${breadcrumbHtml}<div class="present-source" data-slide-start="${slide.startOffset}">${titleHtml}<div class="present-body">${slide.html}</div></div>`
   }
 

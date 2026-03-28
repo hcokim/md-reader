@@ -539,9 +539,9 @@ export function updateActiveFileText(nextText: string): boolean {
 }
 
 function renderSessionFile(file: SessionFile) {
-  updateMarkdownDocument(file.id, file.text)
+  const markdownDocument = updateMarkdownDocument(file.id, file.text)
   setActiveMarkdownDocument(file.id)
-  content.innerHTML = render(file.text)
+  content.innerHTML = render(file.text, markdownDocument)
   prepareAnnotationBlocks(content)
   outlineItems = buildOutline()
   setActiveAnnotationDocument(file.id)

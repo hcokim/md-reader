@@ -20,6 +20,7 @@ const toolbar = document.getElementById('annotation-toolbar')!
 const highlightAction = document.getElementById('annotation-highlight-action') as HTMLButtonElement
 const commentAction = document.getElementById('annotation-comment-action') as HTMLButtonElement
 const removeAction = document.getElementById('annotation-remove-action') as HTMLButtonElement
+const feedback = document.getElementById('annotation-feedback')!
 const commentPopover = document.getElementById('annotation-comment-popover')!
 const commentInput = document.getElementById('annotation-comment-input') as HTMLTextAreaElement
 const commentDelete = document.getElementById('annotation-comment-delete') as HTMLButtonElement
@@ -60,27 +61,42 @@ let openCommentId: string | null = null
 let commentPopoverSession: CommentPopoverSession | null = null
 let selectionInProgress = false
 let lastRejectedSelectionSignature: string | null = null
+let feedbackHideTimer: number | null = null
 
 export function initAnnotations() {
   const syncPendingSelectionFromDom = (options: { showSelectionToolbar: boolean }) => {
     const selection = document.getSelection()
     if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
       pendingSelection = null
+      hideSelectionFeedback()
       if (!activeMarkdownHighlight) hideToolbar()
-      return null
+      return { candidate: null, reason: null }
     }
 
-    const result = resolveSelectionCandidate(selection.getRangeAt(0))
+    const range = selection.getRangeAt(0)
+    const result = resolveSelectionCandidate(range)
     if (!result.candidate) {
       pendingSelection = null
       if (!activeMarkdownHighlight) hideToolbar()
       logRejectedSelection(selection, result.reason)
-      return null
+      if (options.showSelectionToolbar) {
+        const message = getSelectionFailureMessage(result.reason)
+        const rect = getVisibleRect(range)
+        if (message && rect) {
+          showSelectionFeedback(rect, message)
+        } else {
+          hideSelectionFeedback()
+        }
+      } else {
+        hideSelectionFeedback()
+      }
+      return result
     }
 
     pendingSelection = result.candidate
     activeMarkdownHighlight = null
     lastRejectedSelectionSignature = null
+    hideSelectionFeedback()
 
     if (options.showSelectionToolbar) {
       showToolbar(result.candidate.rect, 'selection')
@@ -88,12 +104,13 @@ export function initAnnotations() {
       hideToolbar()
     }
 
-    return result.candidate
+    return result
   }
 
   const handleSelectionChange = () => {
     if (isReadOnlyViewport()) {
       clearPendingState()
+      hideSelectionFeedback()
       hideToolbar()
       return
     }
@@ -114,6 +131,7 @@ export function initAnnotations() {
 
     clearBrowserSelection()
     clearPendingState()
+    hideSelectionFeedback()
     closeCommentPopover()
     updateActiveFileText(nextSource)
   }
@@ -125,6 +143,7 @@ export function initAnnotations() {
     clearBrowserSelection()
     pendingSelection = null
     activeMarkdownHighlight = null
+    hideSelectionFeedback()
     hideToolbar()
     openCommentPopoverForCreate(selection)
   }
@@ -141,6 +160,7 @@ export function initAnnotations() {
     })
 
     clearPendingState()
+    hideSelectionFeedback()
     closeCommentPopover()
     updateActiveFileText(nextSource)
   }
@@ -159,6 +179,7 @@ export function initAnnotations() {
       event.stopPropagation()
       clearBrowserSelection()
       clearPendingState()
+      hideSelectionFeedback()
       hideToolbar()
       openCommentPopoverForEdit(comment, commentTarget.getBoundingClientRect(), false)
       return
@@ -178,6 +199,7 @@ export function initAnnotations() {
     clearBrowserSelection()
     pendingSelection = null
     activeMarkdownHighlight = candidate
+    hideSelectionFeedback()
     closeCommentPopover()
     showToolbar(nativeHighlight.getBoundingClientRect(), 'highlight')
   }
@@ -187,6 +209,7 @@ export function initAnnotations() {
     if (!target) return
     if (toolbar.contains(target) || commentPopover.contains(target)) return
 
+    hideSelectionFeedback()
     dismissCommentPopover()
 
     if (event.button === 0 && isAnnotationSurfaceNode(target)) {
@@ -242,6 +265,7 @@ export function initAnnotations() {
     }
 
     clearPendingState()
+    hideSelectionFeedback()
     hideToolbar()
   }
 
@@ -253,6 +277,7 @@ export function initAnnotations() {
     if (!commentPopoverSession) return
 
     if (commentPopoverSession.mode === 'create') {
+      hideSelectionFeedback()
       closeCommentPopover()
       return
     }
@@ -260,17 +285,20 @@ export function initAnnotations() {
     const source = getActiveFileText()
     const comment = getMarkdownCommentById(commentPopoverSession.commentId)
     if (!source || !comment) {
+      hideSelectionFeedback()
       closeCommentPopover()
       return
     }
 
     const nextSource = removeMarkdownComment(source, comment)
+    hideSelectionFeedback()
     closeCommentPopover()
     updateActiveFileText(nextSource)
   }
 
   const hideFloatingUi = () => {
     clearPendingState()
+    hideSelectionFeedback()
     hideToolbar()
     dismissCommentPopover()
   }
@@ -313,6 +341,7 @@ export function initAnnotations() {
 export function setActiveAnnotationDocument(documentId: string | null) {
   activeDocumentId = documentId
   clearPendingState()
+  hideSelectionFeedback()
   closeCommentPopover()
   syncCommentPopover()
 }
@@ -327,6 +356,7 @@ export function refreshAnnotations() {
 
 export function hideAnnotationToolbar() {
   clearPendingState()
+  hideSelectionFeedback()
   hideToolbar()
   closeCommentPopover()
 }
@@ -484,6 +514,54 @@ function isCommentTargetNode(node: Node, root: HTMLElement) {
   if (!element) return null
   const commentTarget = element.closest<HTMLElement>(COMMENT_TARGET_SELECTOR)
   return commentTarget && root.contains(commentTarget) ? commentTarget : null
+}
+
+function showSelectionFeedback(anchorRect: DOMRect, message: string) {
+  if (feedbackHideTimer !== null) {
+    window.clearTimeout(feedbackHideTimer)
+    feedbackHideTimer = null
+  }
+
+  feedback.textContent = message
+  feedback.classList.remove('hidden')
+
+  const feedbackRect = feedback.getBoundingClientRect()
+  const top = getFloatingTop(anchorRect, feedbackRect.height)
+  let left = anchorRect.left + anchorRect.width / 2 - feedbackRect.width / 2
+  left = Math.max(12, Math.min(left, window.innerWidth - feedbackRect.width - 12))
+
+  feedback.style.left = `${left}px`
+  feedback.style.top = `${top}px`
+  feedbackHideTimer = window.setTimeout(() => {
+    feedbackHideTimer = null
+    feedback.classList.add('hidden')
+  }, 3200)
+}
+
+function hideSelectionFeedback() {
+  if (feedbackHideTimer !== null) {
+    window.clearTimeout(feedbackHideTimer)
+    feedbackHideTimer = null
+  }
+
+  feedback.classList.add('hidden')
+}
+
+function getSelectionFailureMessage(reason: string | SourceSelectionFailureReason | null) {
+  switch (reason) {
+    case 'different-dom-blocks':
+    case 'different-blocks':
+      return 'Select within one paragraph, heading, or list item.'
+    case 'unsupported-source-range':
+      return 'This selection crosses markdown formatting. Try a smaller range that stays within plain text.'
+    case 'inside-existing-annotation':
+      return 'This text already has an annotation. Click it to edit or remove it.'
+    case 'unmapped-block':
+    case 'unknown-block':
+      return 'This part of the document is not ready for annotations yet.'
+    default:
+      return null
+  }
 }
 
 function showToolbar(anchorRect: DOMRect, mode: 'selection' | 'highlight') {

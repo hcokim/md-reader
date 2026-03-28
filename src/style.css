@@ -755,6 +755,24 @@ body.drag-over .landing-icon {
   background: color-mix(in srgb, var(--fg) 12%, transparent);
 }
 
+.annotation-feedback {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: min(320px, calc(100vw - 24px));
+  padding: 11px 14px;
+  background: color-mix(in srgb, var(--controls-bg) 92%, var(--bg) 8%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--controls-border);
+  border-radius: 14px;
+  box-shadow: var(--controls-shadow);
+  color: var(--fg);
+  font-size: 13px;
+  line-height: 1.45;
+  z-index: 1004;
+}
+
 .annotation-comment-popover {
   position: fixed;
   top: 0;

@@ -34,20 +34,31 @@ const SOURCE_BLOCK_SELECTOR = 'h1, h2, h3, h4, h5, h6, p, pre, hr, li'
 export function prepareSourceMappedBlocks(root: HTMLElement) {
   const document = getActiveMarkdownDocument()
   const elements = collectSourceBlockElements(root)
+  const unresolved: HTMLElement[] = []
+  const assignedBlockIds = new Set<string>()
 
   for (const element of elements) {
     delete element.dataset.annotationBlockId
+
+    const explicitBlockId = getExplicitBlockId(element)
+    if (explicitBlockId) {
+      element.dataset.annotationBlockId = explicitBlockId
+      assignedBlockIds.add(explicitBlockId)
+    } else {
+      unresolved.push(element)
+    }
   }
 
-  if (!document) return
+  if (!document || unresolved.length === 0) return
 
   const blocks = document.blocks.filter((block) =>
     block.kind !== 'html'
     && block.kind !== 'table'
-    && !block.context.insideFootnote)
+    && !block.context.insideFootnote
+    && !assignedBlockIds.has(block.id))
   let sourceIndex = 0
 
-  for (const element of elements) {
+  for (const element of unresolved) {
     while (sourceIndex < blocks.length) {
       const block = blocks[sourceIndex]
       sourceIndex += 1
@@ -136,6 +147,18 @@ function collectSourceBlockElements(root: HTMLElement): HTMLElement[] {
     if (element.tagName !== 'LI') return true
     return isSimpleListItem(element)
   })
+}
+
+function getExplicitBlockId(element: HTMLElement) {
+  if (element.dataset.mdBlockId) {
+    return element.dataset.mdBlockId
+  }
+
+  if (element.tagName === 'PRE') {
+    return element.querySelector<HTMLElement>('code[data-md-block-id]')?.dataset.mdBlockId ?? null
+  }
+
+  return null
 }
 
 function isSimpleListItem(element: HTMLElement): boolean {
