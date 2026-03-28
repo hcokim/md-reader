@@ -12,7 +12,13 @@ interface DataTransferItem {
 }
 
 interface FileSystemFileHandle {
+  createWritable(): Promise<FileSystemWritableFileStream>
   requestPermission(descriptor?: { mode?: 'read' | 'readwrite' }): Promise<PermissionState>
+}
+
+interface FileSystemWritableFileStream {
+  write(data: string): Promise<void>
+  close(): Promise<void>
 }
 
 interface FileSystemDirectoryHandle {
