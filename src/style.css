@@ -58,6 +58,9 @@ body {
   color: var(--fg);
   background: var(--bg);
   letter-spacing: var(--letter-spacing, normal);
+  --annotation-highlight-bg: rgba(255, 224, 102, 0.62);
+  --annotation-highlight-bg-hover: rgba(255, 224, 102, 0.76);
+  --annotation-highlight-outline: rgba(173, 110, 0, 0.18);
   transition: background 0.2s ease, color 0.2s ease;
   -webkit-font-smoothing: antialiased;
 }
@@ -712,6 +715,46 @@ body.drag-over .landing-icon {
   background-position: right 6px center;
 }
 
+/* --- Annotation Toolbar --- */
+
+.annotation-toolbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: var(--controls-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--controls-border);
+  border-radius: 999px;
+  box-shadow: var(--controls-shadow);
+  z-index: 300;
+}
+
+.annotation-toolbar button {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.annotation-toolbar button:hover {
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+}
+
+.annotation-toolbar button:active {
+  background: color-mix(in srgb, var(--fg) 12%, transparent);
+}
+
 /* ============================================================
    Markdown content styles
    ============================================================ */
@@ -758,6 +801,19 @@ body.drag-over .landing-icon {
 
 #content .article-meta a:hover {
   color: var(--link);
+}
+
+#content .annotation-highlight,
+#present-slide .annotation-highlight {
+  background: var(--annotation-highlight-bg);
+  border-radius: 0.28em;
+  box-shadow: inset 0 0 0 1px var(--annotation-highlight-outline);
+  cursor: pointer;
+}
+
+#content .annotation-highlight:hover,
+#present-slide .annotation-highlight:hover {
+  background: var(--annotation-highlight-bg-hover);
 }
 
 #content p {

@@ -1,4 +1,5 @@
 import { render } from './markdown.ts'
+import { setActiveAnnotationDocument } from './annotations.ts'
 
 const landing = document.getElementById('landing')!
 const reader = document.getElementById('reader')!
@@ -357,8 +358,7 @@ async function pollFiles() {
         if (entry.id === activeFileId) {
           const scrollParent = content.parentElement
           const scrollPos = scrollParent?.scrollTop ?? 0
-          content.innerHTML = render(entry.text)
-          outlineItems = buildOutline()
+          renderSessionFile(entry)
           renderSidebar()
           if (scrollParent) scrollParent.scrollTop = scrollPos
         }
@@ -498,11 +498,16 @@ function setActiveFile(fileId: string) {
   const file = sessionFiles.find((entry) => entry.id === fileId)
   if (!file) return
 
-  content.innerHTML = render(file.text)
-  outlineItems = buildOutline()
+  renderSessionFile(file)
   isSidebarCollapsed = outlineItems.length <= 5 && sessionFiles.length <= 1
   showReader(file.name)
   renderSidebar()
+}
+
+function renderSessionFile(file: SessionFile) {
+  content.innerHTML = render(file.text)
+  outlineItems = buildOutline()
+  setActiveAnnotationDocument(file.id)
 }
 
 function buildOutline(): OutlineItem[] {

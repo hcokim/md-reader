@@ -1,3 +1,5 @@
+import { hideAnnotationToolbar } from './annotations.ts'
+
 const content = document.getElementById('content')!
 const presentOverlay = document.getElementById('present-overlay')!
 const presentSlide = document.getElementById('present-slide')!
@@ -204,6 +206,7 @@ function closePresentSidebar() {
 }
 
 function enterPresent() {
+  hideAnnotationToolbar()
   slides = buildSlides()
   if (slides.length === 0) return
 
@@ -217,6 +220,7 @@ function enterPresent() {
 }
 
 function exitPresent() {
+  hideAnnotationToolbar()
   active = false
   presentOverlay.hidden = true
   presentOverlay.classList.add('hidden')
