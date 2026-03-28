@@ -146,6 +146,21 @@
       </div>
     </div>
 
+    <div id="annotation-toolbar" class="annotation-toolbar hidden" role="toolbar" aria-label="Text selection actions">
+      <button id="annotation-highlight-action" type="button">Highlight</button>
+      <button id="annotation-comment-action" type="button">Comment</button>
+      <button id="annotation-remove-action" type="button" class="hidden">Remove</button>
+    </div>
+    <div id="annotation-feedback" class="annotation-feedback hidden" role="status" aria-live="polite"></div>
+    <div id="annotation-selection-preview" class="annotation-selection-preview hidden" aria-hidden="true"></div>
+
+    <aside id="annotation-comment-popover" class="annotation-comment-popover hidden" aria-label="Comment editor">
+      <textarea id="annotation-comment-input" placeholder="Add a note"></textarea>
+      <div class="annotation-comment-popover-footer">
+        <button id="annotation-comment-delete" type="button">Delete</button>
+      </div>
+    </aside>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

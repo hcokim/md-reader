@@ -6,10 +6,13 @@ import type { HighlighterGeneric } from 'shiki'
 import { createOnigurumaEngine } from 'shiki/engine/oniguruma'
 import texmath from 'markdown-it-texmath'
 import footnote from 'markdown-it-footnote'
+import mark from 'markdown-it-mark'
 import taskLists from 'markdown-it-task-lists'
 import katex from 'katex'
+import type { MarkdownBlock, MarkdownDocumentModel } from './markdown-model.ts'
 
 let md: MarkdownIt
+type MarkdownToken = ReturnType<MarkdownIt['parse']>[number]
 
 export async function initMarkdown(): Promise<void> {
   const highlighter = await createHighlighterCore({
@@ -63,13 +66,65 @@ export async function initMarkdown(): Promise<void> {
     delimiters: 'dollars',
   })
 
+  md.use(mark)
   md.use(footnote)
   md.use(taskLists, { enabled: false, label: true })
 }
 
-export function render(text: string): string {
-  return DOMPurify.sanitize(md.render(text), {
+export function render(text: string, document: MarkdownDocumentModel | null = null): string {
+  const tokens = md.parse(text, {})
+  if (document) {
+    annotateBlockTokens(tokens, document)
+  }
+
+  return DOMPurify.sanitize(md.renderer.render(tokens, md.options, {}), {
     ADD_TAGS: ['section'],
-    ADD_ATTR: ['class', 'style'],
+    ADD_ATTR: ['class', 'style', 'data-md-block-id', 'data-md-block-kind'],
   })
+}
+
+function annotateBlockTokens(tokens: MarkdownToken[], document: MarkdownDocumentModel) {
+  const blocks = document.blocks.filter((block) =>
+    block.kind !== 'html'
+    && block.kind !== 'table'
+    && !block.context.insideFootnote)
+
+  let blockIndex = 0
+  for (let tokenIndex = 0; tokenIndex < tokens.length && blockIndex < blocks.length; tokenIndex += 1) {
+    const token = tokens[tokenIndex]
+    const block = blocks[blockIndex]
+    if (!doesTokenRenderBlock(token, block, tokens, tokenIndex)) continue
+
+    token.attrSet('data-md-block-id', block.id)
+    token.attrSet('data-md-block-kind', block.kind)
+    blockIndex += 1
+  }
+}
+
+function doesTokenRenderBlock(
+  token: MarkdownToken,
+  block: MarkdownBlock,
+  tokens: MarkdownToken[],
+  tokenIndex: number,
+) {
+  switch (block.kind) {
+    case 'heading':
+      return token.type === 'heading_open'
+    case 'paragraph':
+      if (block.context.listDepth > 0 && token.type === 'list_item_open') {
+        return isTightListItemToken(tokens, tokenIndex)
+      }
+      return token.type === 'paragraph_open' && token.hidden !== true
+    case 'code':
+      return token.type === 'fence' || token.type === 'code_block'
+    case 'thematic-break':
+      return token.type === 'hr'
+    default:
+      return false
+  }
+}
+
+function isTightListItemToken(tokens: MarkdownToken[], tokenIndex: number) {
+  const nextToken = tokens[tokenIndex + 1]
+  return nextToken?.type === 'paragraph_open' && nextToken.hidden === true
 }

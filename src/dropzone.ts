@@ -1,4 +1,8 @@
 import { render } from './markdown.ts'
+import { prepareAnnotationBlocks, setActiveAnnotationDocument } from './annotations.ts'
+import { registerActiveFileBridge } from './active-file.ts'
+import { setActiveMarkdownDocument, updateMarkdownDocument } from './markdown-state.ts'
+import { rerenderPresentation } from './present.ts'
 
 const landing = document.getElementById('landing')!
 const reader = document.getElementById('reader')!
@@ -113,6 +117,10 @@ async function openFilePicker(e: MouseEvent) {
 
 export function initDropzone(ready: Promise<void>) {
   markdownReady = ready
+  registerActiveFileBridge({
+    getText: getActiveFileText,
+    updateText: updateActiveFileText,
+  })
 
   // Check for a restorable session and show the button if available
   void loadSession().then((handles) => {
@@ -357,8 +365,7 @@ async function pollFiles() {
         if (entry.id === activeFileId) {
           const scrollParent = content.parentElement
           const scrollPos = scrollParent?.scrollTop ?? 0
-          content.innerHTML = render(entry.text)
-          outlineItems = buildOutline()
+          renderSessionFile(entry)
           renderSidebar()
           if (scrollParent) scrollParent.scrollTop = scrollPos
         }
@@ -498,11 +505,46 @@ function setActiveFile(fileId: string) {
   const file = sessionFiles.find((entry) => entry.id === fileId)
   if (!file) return
 
-  content.innerHTML = render(file.text)
-  outlineItems = buildOutline()
+  renderSessionFile(file)
   isSidebarCollapsed = outlineItems.length <= 5 && sessionFiles.length <= 1
   showReader(file.name)
   renderSidebar()
+}
+
+export function getActiveFileText(): string | null {
+  if (!activeFileId) return null
+  return sessionFiles.find((entry) => entry.id === activeFileId)?.text ?? null
+}
+
+export function updateActiveFileText(nextText: string): boolean {
+  if (!activeFileId) return false
+
+  const file = sessionFiles.find((entry) => entry.id === activeFileId)
+  if (!file || file.text === nextText) return false
+
+  file.text = nextText
+
+  const scrollParent = content.parentElement
+  const scrollPos = scrollParent?.scrollTop ?? 0
+
+  renderSessionFile(file)
+  renderSidebar()
+  rerenderPresentation()
+
+  if (scrollParent) {
+    scrollParent.scrollTop = scrollPos
+  }
+
+  return true
+}
+
+function renderSessionFile(file: SessionFile) {
+  const markdownDocument = updateMarkdownDocument(file.id, file.text)
+  setActiveMarkdownDocument(file.id)
+  content.innerHTML = render(file.text, markdownDocument)
+  prepareAnnotationBlocks(content)
+  outlineItems = buildOutline()
+  setActiveAnnotationDocument(file.id)
 }
 
 function buildOutline(): OutlineItem[] {
