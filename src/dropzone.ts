@@ -1,7 +1,7 @@
 import { render } from './markdown.ts'
 import { prepareAnnotationBlocks, setActiveAnnotationDocument } from './annotations.ts'
 import { registerActiveFileBridge } from './active-file.ts'
-import { setActiveMarkdownDocument, updateMarkdownDocument } from './markdown-state.ts'
+import { deleteMarkdownDocument, setActiveMarkdownDocument, updateMarkdownDocument } from './markdown-state.ts'
 import { rerenderPresentation } from './present.ts'
 
 const landing = document.getElementById('landing')!
@@ -292,6 +292,15 @@ export function initDropzone(ready: Promise<void>) {
     sidebarBackdrop.removeEventListener('click', dismissSidebarIfNarrow)
     narrowQuery.removeEventListener('change', handleViewportChange)
     document.removeEventListener('keydown', handleShortcut)
+    if (watchInterval) {
+      clearInterval(watchInterval)
+      watchInterval = null
+    }
+    for (const file of sessionFiles) {
+      deleteMarkdownDocument(file.id)
+    }
+    sessionFiles = []
+    activeFileId = null
   }
 }
 
@@ -472,10 +481,10 @@ async function loadUrl(input: string) {
     if (metaParts.length > 0 || meta.source) {
       header += '<p class="article-meta">'
       if (metaParts.length > 0) header += metaParts.join(' · ')
-      if (meta.source) {
+      if (meta.source && /^https?:\/\//i.test(meta.source)) {
         const domain = meta.domain || new URL(meta.source).hostname
         if (metaParts.length > 0) header += ' · '
-        header += `<a href="${meta.source}">${domain}</a>`
+        header += `<a href="${escapeAttr(meta.source)}" rel="noopener noreferrer">${escapeHtml(domain)}</a>`
       }
       header += '</p>\n\n'
     }
@@ -830,4 +839,19 @@ function showReader(fileName: string) {
   settingsToggle.classList.remove('hidden')
   presentToggle.classList.remove('hidden')
   document.title = fileName.length > 100 ? fileName.slice(0, 100) + '\u2026' : fileName
+}
+
+function escapeHtml(text: string): string {
+  const div = document.createElement('div')
+  div.textContent = text
+  return div.innerHTML
+}
+
+function escapeAttr(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
 }

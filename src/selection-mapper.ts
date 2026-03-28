@@ -198,10 +198,19 @@ function normalizeBlockText(text: string): string {
   return text.replace(/\s+/g, ' ').trim()
 }
 
-function getBlockRenderText(element: HTMLElement) {
-  const clone = element.cloneNode(true) as HTMLElement
-  clone.querySelectorAll('sup.footnote-ref').forEach((ref) => ref.remove())
-  return clone.textContent ?? ''
+function getBlockRenderText(element: HTMLElement): string {
+  let text = ''
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      return node.parentElement?.closest('sup.footnote-ref')
+        ? NodeFilter.FILTER_REJECT
+        : NodeFilter.FILTER_ACCEPT
+    },
+  })
+  while (walker.nextNode()) {
+    text += walker.currentNode.textContent
+  }
+  return text
 }
 
 function getSourceMappedBlock(node: Node, root: HTMLElement): HTMLElement | null {
