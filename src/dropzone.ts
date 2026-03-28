@@ -13,6 +13,7 @@ const fileList = document.getElementById('file-list')!
 const outlineList = document.getElementById('outline-list')!
 const sidebarToggle = document.getElementById('sidebar-toggle') as HTMLButtonElement
 const addFileToggle = document.getElementById('add-file-toggle') as HTMLButtonElement
+const saveFileButton = document.getElementById('save-file-button') as HTMLButtonElement
 const settingsToggle = document.getElementById('settings-toggle')!
 const presentToggle = document.getElementById('present-toggle')!
 const fileInput = document.getElementById('file-input') as HTMLInputElement
@@ -25,6 +26,8 @@ type SessionFile = {
   id: string
   name: string
   text: string
+  savedText: string
+  isDirty: boolean
   handle?: FileSystemFileHandle
   lastModified?: number
 }
@@ -92,6 +95,10 @@ let activeFileId: string | null = null
 let outlineItems: OutlineItem[] = []
 let isSidebarCollapsed = false
 let fileCounter = 0
+let saveButtonMode: 'idle' | 'saved' = 'idle'
+let saveButtonFileId: string | null = null
+let saveButtonHideTimeout: ReturnType<typeof setTimeout> | null = null
+let isSaveInFlight = false
 
 async function openFilePicker(e: MouseEvent) {
   e.preventDefault()
@@ -228,6 +235,10 @@ export function initDropzone(ready: Promise<void>) {
     toggleSidebar()
   }
 
+  const handleSaveClick = () => {
+    void saveActiveFile()
+  }
+
   const handleShortcut = (e: KeyboardEvent) => {
     const hasSidebarContent = sessionFiles.length > 1 || outlineItems.length > 0
     if (!hasSidebarContent) return
@@ -262,6 +273,7 @@ export function initDropzone(ready: Promise<void>) {
   document.body.addEventListener('drop', handleDrop)
   sidebarToggle.addEventListener('click', handleSidebarToggle)
   addFileToggle.addEventListener('click', openFilePicker)
+  saveFileButton.addEventListener('click', handleSaveClick)
   sidebarBackdrop.addEventListener('click', dismissSidebarIfNarrow)
   narrowQuery.addEventListener('change', handleViewportChange)
   document.addEventListener('keydown', handleShortcut)
@@ -276,6 +288,7 @@ export function initDropzone(ready: Promise<void>) {
     document.body.removeEventListener('drop', handleDrop)
     sidebarToggle.removeEventListener('click', handleSidebarToggle)
     addFileToggle.removeEventListener('click', openFilePicker)
+    saveFileButton.removeEventListener('click', handleSaveClick)
     sidebarBackdrop.removeEventListener('click', dismissSidebarIfNarrow)
     narrowQuery.removeEventListener('change', handleViewportChange)
     document.removeEventListener('keydown', handleShortcut)
@@ -292,7 +305,13 @@ async function loadFiles(files: File[]) {
     id: buildFileId(),
     name: file.name,
     text: await file.text(),
+    savedText: '',
+    isDirty: false,
   })))
+
+  for (const file of loadedFiles) {
+    file.savedText = file.text
+  }
 
   sessionFiles = [...sessionFiles, ...loadedFiles]
 
@@ -318,10 +337,16 @@ async function loadFileHandles(handles: FileSystemFileHandle[]) {
       id: buildFileId(),
       name: handle.name,
       text: await file.text(),
+      savedText: '',
+      isDirty: false,
       handle,
       lastModified: file.lastModified,
     }
   }))
+
+  for (const file of loadedFiles) {
+    file.savedText = file.text
+  }
 
   sessionFiles = [...sessionFiles, ...loadedFiles]
 
@@ -357,16 +382,23 @@ async function pollFiles() {
   }
 
   for (const entry of watchedFiles) {
+    if (entry.isDirty) {
+      continue
+    }
+
     try {
       const file = await entry.handle!.getFile()
       if (file.lastModified !== entry.lastModified) {
         entry.lastModified = file.lastModified
         entry.text = await file.text()
+        entry.savedText = entry.text
+        entry.isDirty = false
         if (entry.id === activeFileId) {
           const scrollParent = content.parentElement
           const scrollPos = scrollParent?.scrollTop ?? 0
           renderSessionFile(entry)
           renderSidebar()
+          renderSaveButton()
           if (scrollParent) scrollParent.scrollTop = scrollPos
         }
       }
@@ -453,6 +485,8 @@ async function loadUrl(input: string) {
       id: buildFileId(),
       name: title,
       text: markdown,
+      savedText: markdown,
+      isDirty: false,
     }
 
     sessionFiles = [...sessionFiles, file]
@@ -500,6 +534,120 @@ function buildFileId() {
   return `md-file-${Date.now()}-${fileCounter}`
 }
 
+function getActiveSessionFile() {
+  if (!activeFileId) return null
+  return sessionFiles.find((entry) => entry.id === activeFileId) ?? null
+}
+
+function clearSaveButtonHideTimeout() {
+  if (!saveButtonHideTimeout) return
+  clearTimeout(saveButtonHideTimeout)
+  saveButtonHideTimeout = null
+}
+
+function resetSaveButtonTransientState() {
+  clearSaveButtonHideTimeout()
+  saveButtonMode = 'idle'
+  saveButtonFileId = null
+  isSaveInFlight = false
+  saveFileButton.disabled = false
+}
+
+function setSaveButtonVisible(isVisible: boolean) {
+  document.body.classList.toggle('has-save-button', isVisible)
+}
+
+function renderSaveButton() {
+  const file = getActiveSessionFile()
+  if (!file || !file.handle) {
+    setSaveButtonVisible(false)
+    saveFileButton.classList.add('hidden')
+    saveFileButton.removeAttribute('data-state')
+    saveFileButton.textContent = 'Save'
+    return
+  }
+
+  const isSaving = isSaveInFlight && saveButtonFileId === file.id
+  const isSaved = saveButtonMode === 'saved' && saveButtonFileId === file.id && !file.isDirty
+
+  if (isSaved) {
+    setSaveButtonVisible(true)
+    saveFileButton.classList.remove('hidden')
+    saveFileButton.dataset.state = 'saved'
+    saveFileButton.disabled = true
+    saveFileButton.textContent = 'Saved'
+    return
+  }
+
+  if (!file.isDirty) {
+    if (!isSaving && !isSaved) {
+      resetSaveButtonTransientState()
+    }
+    setSaveButtonVisible(false)
+    saveFileButton.classList.add('hidden')
+    saveFileButton.removeAttribute('data-state')
+    saveFileButton.textContent = 'Save'
+    return
+  }
+
+  setSaveButtonVisible(true)
+  saveFileButton.classList.remove('hidden')
+  saveFileButton.dataset.state = 'dirty'
+  saveFileButton.disabled = isSaving
+  saveFileButton.textContent = 'Save'
+}
+
+async function saveActiveFile() {
+  const file = getActiveSessionFile()
+  if (!file?.handle || !file.isDirty || isSaveInFlight) return
+
+  clearSaveButtonHideTimeout()
+  isSaveInFlight = true
+  saveButtonFileId = file.id
+  saveFileButton.disabled = true
+
+  const textToSave = file.text
+
+  try {
+    const permission = await file.handle.requestPermission({ mode: 'readwrite' })
+    if (permission !== 'granted') {
+      resetSaveButtonTransientState()
+      renderSaveButton()
+      return
+    }
+
+    const writable = await file.handle.createWritable()
+    await writable.write(textToSave)
+    await writable.close()
+
+    const savedFile = await file.handle.getFile()
+    file.lastModified = savedFile.lastModified
+    file.savedText = textToSave
+    file.isDirty = file.text !== file.savedText
+    isSaveInFlight = false
+
+    if (file.isDirty) {
+      resetSaveButtonTransientState()
+      renderSaveButton()
+      return
+    }
+
+    saveButtonMode = 'saved'
+    saveButtonFileId = file.id
+    renderSaveButton()
+
+    saveButtonHideTimeout = setTimeout(() => {
+      if (activeFileId === file.id && !file.isDirty) {
+        resetSaveButtonTransientState()
+        renderSaveButton()
+      }
+    }, 1000)
+  } catch {
+    resetSaveButtonTransientState()
+    renderSaveButton()
+  }
+}
+
 function setActiveFile(fileId: string) {
   activeFileId = fileId
   const file = sessionFiles.find((entry) => entry.id === fileId)
@@ -509,6 +657,7 @@ function setActiveFile(fileId: string) {
   isSidebarCollapsed = outlineItems.length <= 5 && sessionFiles.length <= 1
   showReader(file.name)
   renderSidebar()
+  renderSaveButton()
 }
 
 export function getActiveFileText(): string | null {
@@ -523,6 +672,10 @@ export function updateActiveFileText(nextText: string): boolean {
   if (!file || file.text === nextText) return false
 
   file.text = nextText
+  file.isDirty = file.text !== file.savedText
+  if (saveButtonFileId === file.id && file.isDirty) {
+    resetSaveButtonTransientState()
+  }
 
   const scrollParent = content.parentElement
   const scrollPos = scrollParent?.scrollTop ?? 0
@@ -530,6 +683,7 @@ export function updateActiveFileText(nextText: string): boolean {
   renderSessionFile(file)
   renderSidebar()
   rerenderPresentation()
+  renderSaveButton()
 
   if (scrollParent) {
     scrollParent.scrollTop = scrollPos
