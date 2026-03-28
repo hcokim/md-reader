@@ -8,6 +8,7 @@ const sidebarBackdrop = document.getElementById('sidebar-backdrop')!
 const fileList = document.getElementById('file-list')!
 const outlineList = document.getElementById('outline-list')!
 const sidebarToggle = document.getElementById('sidebar-toggle') as HTMLButtonElement
+const addFileToggle = document.getElementById('add-file-toggle') as HTMLButtonElement
 const settingsToggle = document.getElementById('settings-toggle')!
 const presentToggle = document.getElementById('present-toggle')!
 const fileInput = document.getElementById('file-input') as HTMLInputElement
@@ -88,6 +89,28 @@ let outlineItems: OutlineItem[] = []
 let isSidebarCollapsed = false
 let fileCounter = 0
 
+async function openFilePicker(e: MouseEvent) {
+  e.preventDefault()
+  if ('showOpenFilePicker' in window) {
+    try {
+      const handles = await window.showOpenFilePicker!({
+        multiple: true,
+        types: [{
+          description: 'Markdown files',
+          accept: { 'text/markdown': ['.md', '.markdown', '.mdx', '.txt'] },
+        }],
+      })
+      if (handles.length > 0) {
+        void loadFileHandles(handles)
+      }
+    } catch {
+      // User cancelled the picker
+    }
+  } else {
+    fileInput.click()
+  }
+}
+
 export function initDropzone(ready: Promise<void>) {
   markdownReady = ready
 
@@ -101,27 +124,7 @@ export function initDropzone(ready: Promise<void>) {
     }
   })
 
-  const handleOpenClick = async (e: MouseEvent) => {
-    e.preventDefault()
-    if ('showOpenFilePicker' in window) {
-      try {
-        const handles = await window.showOpenFilePicker!({
-          multiple: true,
-          types: [{
-            description: 'Markdown files',
-            accept: { 'text/markdown': ['.md', '.markdown', '.mdx', '.txt'] },
-          }],
-        })
-        if (handles.length > 0) {
-          void loadFileHandles(handles)
-        }
-      } catch {
-        // User cancelled the picker
-      }
-    } else {
-      fileInput.click()
-    }
-  }
+  const handleOpenClick = openFilePicker
 
   const handleInputChange = () => {
     const files = Array.from(fileInput.files ?? [])
@@ -250,6 +253,7 @@ export function initDropzone(ready: Promise<void>) {
   document.body.addEventListener('dragleave', handleDragLeave)
   document.body.addEventListener('drop', handleDrop)
   sidebarToggle.addEventListener('click', handleSidebarToggle)
+  addFileToggle.addEventListener('click', openFilePicker)
   sidebarBackdrop.addEventListener('click', dismissSidebarIfNarrow)
   narrowQuery.addEventListener('change', handleViewportChange)
   document.addEventListener('keydown', handleShortcut)
@@ -263,6 +267,7 @@ export function initDropzone(ready: Promise<void>) {
     document.body.removeEventListener('dragleave', handleDragLeave)
     document.body.removeEventListener('drop', handleDrop)
     sidebarToggle.removeEventListener('click', handleSidebarToggle)
+    addFileToggle.removeEventListener('click', openFilePicker)
     sidebarBackdrop.removeEventListener('click', dismissSidebarIfNarrow)
     narrowQuery.removeEventListener('change', handleViewportChange)
     document.removeEventListener('keydown', handleShortcut)
@@ -563,6 +568,7 @@ function renderSidebar() {
   reader.classList.toggle('sidebar-collapsed', hasSidebarContent && isSidebarCollapsed)
   fileSidebar.classList.toggle('hidden', !hasSidebarContent)
   sidebarToggle.classList.toggle('hidden', !hasSidebarContent)
+  addFileToggle.classList.toggle('hidden', !hasSidebarContent)
 
   if (hasSidebarContent) {
     sidebarToggle.setAttribute('aria-label', isSidebarCollapsed ? 'Show navigation sidebar' : 'Hide navigation sidebar')
