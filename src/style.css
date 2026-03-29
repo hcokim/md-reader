@@ -538,11 +538,13 @@ body.drag-over .landing-icon {
     z-index: 199;
     background: rgba(0, 0, 0, 0.3);
     opacity: 1;
-    transition: opacity 0.24s ease;
+    visibility: visible;
+    transition: opacity 0.24s ease, visibility 0.24s ease;
   }
 
   #sidebar-backdrop.hidden {
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
   }
 
@@ -552,7 +554,32 @@ body.drag-over .landing-icon {
   }
 
   #reader-main {
-    padding-top: 24px;
+    padding-top: 60px;
+  }
+
+  #present-toggle {
+    display: none !important;
+  }
+
+  #settings-panel {
+    gap: 4px;
+    padding: 10px;
+    font-size: 15px;
+    min-width: 220px;
+  }
+
+  .control-group {
+    padding: 8px 6px;
+    min-height: 36px;
+  }
+
+  .control-group label {
+    font-size: 14px;
+  }
+
+  .control-group select {
+    font-size: 15px;
+    padding: 6px 24px 6px 8px;
   }
 
 }
