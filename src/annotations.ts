@@ -24,7 +24,9 @@ const feedback = document.getElementById('annotation-feedback')!
 const selectionPreview = document.getElementById('annotation-selection-preview')!
 const commentPopover = document.getElementById('annotation-comment-popover')!
 const commentInput = document.getElementById('annotation-comment-input') as HTMLTextAreaElement
+const commentSave = document.getElementById('annotation-comment-save') as HTMLButtonElement
 const commentDelete = document.getElementById('annotation-comment-delete') as HTMLButtonElement
+const commentClose = document.getElementById('annotation-comment-close') as HTMLButtonElement
 
 type SelectionPreviewRect = {
   top: number
@@ -193,7 +195,7 @@ export function initAnnotations() {
       clearPendingState()
       hideSelectionFeedback()
       hideToolbar()
-      openCommentPopoverForEdit(comment, commentTarget.getBoundingClientRect(), false)
+      openCommentPopoverForEdit(comment, commentTarget.getBoundingClientRect(), true)
       return
     }
 
@@ -264,6 +266,19 @@ export function initAnnotations() {
 
   const handleCommentKeyDown = (event: KeyboardEvent) => {
     event.stopPropagation()
+
+    if (
+      event.key === 'Enter'
+      && (event.metaKey || event.ctrlKey)
+      && (
+        commentPopoverSession?.mode === 'create'
+        || commentPopoverSession?.mode === 'edit'
+      )
+      && commentInput.value.trim()
+    ) {
+      event.preventDefault()
+      handleCommentSave()
+    }
   }
 
   const handleEscape = (event: KeyboardEvent) => {
@@ -283,6 +298,16 @@ export function initAnnotations() {
 
   const handleCommentInput = () => {
     resizeCommentInput()
+    syncCommentPopoverActions()
+  }
+
+  const handleCommentSave = () => {
+    hideSelectionFeedback()
+    const nextSource = buildCommentPopoverSource()
+    closeCommentPopover()
+    if (nextSource) {
+      updateActiveFileText(nextSource)
+    }
   }
 
   const handleCommentDelete = () => {
@@ -306,6 +331,11 @@ export function initAnnotations() {
     hideSelectionFeedback()
     closeCommentPopover()
     updateActiveFileText(nextSource)
+  }
+
+  const handleCommentClose = () => {
+    hideSelectionFeedback()
+    dismissCommentPopover()
   }
 
   const hideFloatingUi = () => {
@@ -335,7 +365,9 @@ export function initAnnotations() {
   removeAction.addEventListener('click', handleRemoveClick)
   commentInput.addEventListener('input', handleCommentInput)
   commentInput.addEventListener('keydown', handleCommentKeyDown)
+  commentSave.addEventListener('click', handleCommentSave)
   commentDelete.addEventListener('click', handleCommentDelete)
+  commentClose.addEventListener('click', handleCommentClose)
   content.addEventListener('click', handleSurfaceClick)
   presentSlide.addEventListener('click', handleSurfaceClick)
 
@@ -353,7 +385,9 @@ export function initAnnotations() {
     removeAction.removeEventListener('click', handleRemoveClick)
     commentInput.removeEventListener('input', handleCommentInput)
     commentInput.removeEventListener('keydown', handleCommentKeyDown)
+    commentSave.removeEventListener('click', handleCommentSave)
     commentDelete.removeEventListener('click', handleCommentDelete)
+    commentClose.removeEventListener('click', handleCommentClose)
     content.removeEventListener('click', handleSurfaceClick)
     presentSlide.removeEventListener('click', handleSurfaceClick)
   }
@@ -662,6 +696,7 @@ function openCommentPopoverForCreate(selection: PendingSelection) {
   showSelectionPreview(selection.previewRects)
   commentPopover.classList.remove('hidden')
   commentInput.value = ''
+  syncCommentPopoverActions()
   resizeCommentInput()
   positionCommentPopover(selection.rect)
 
@@ -685,6 +720,7 @@ function openCommentPopoverForEdit(
   }
   commentPopover.classList.remove('hidden')
   commentInput.value = comment.comment
+  syncCommentPopoverActions()
   resizeCommentInput()
   positionCommentPopover(anchorRect)
 
@@ -697,7 +733,7 @@ function openCommentPopoverForEdit(
 }
 
 function dismissCommentPopover() {
-  const nextSource = finalizeCommentPopover()
+  const nextSource = buildCommentPopoverSource()
   closeCommentPopover()
   if (nextSource) {
     updateActiveFileText(nextSource)
@@ -709,34 +745,8 @@ function closeCommentPopover() {
   commentPopoverSession = null
   hideSelectionPreview()
   commentPopover.classList.add('hidden')
-}
-
-function finalizeCommentPopover() {
-  if (!commentPopoverSession) return null
-
-  const source = getActiveFileText()
-  if (!source) return null
-
-  const nextComment = commentInput.value.trim()
-  if (commentPopoverSession.mode === 'create') {
-    if (!nextComment) return null
-
-    return applyMarkdownComment(source, {
-      start: commentPopoverSession.selection.sourceStart,
-      end: commentPopoverSession.selection.sourceEnd,
-    }, nextComment)
-  }
-
-  const comment = getMarkdownCommentById(commentPopoverSession.commentId)
-  if (!comment) return null
-  if (!nextComment) {
-    return removeMarkdownComment(source, comment)
-  }
-  if (nextComment === commentPopoverSession.initialComment.trim()) {
-    return null
-  }
-
-  return updateMarkdownComment(source, comment, nextComment)
+  commentInput.readOnly = false
+  syncCommentPopoverActions()
 }
 
 function syncCommentPopover() {
@@ -759,8 +769,45 @@ function syncCommentPopover() {
   }
 
   commentPopover.classList.remove('hidden')
+  syncCommentPopoverActions()
   resizeCommentInput()
   positionCommentPopover(anchor.getBoundingClientRect())
+}
+
+function buildCommentPopoverSource() {
+  if (!commentPopoverSession) return null
+
+  const source = getActiveFileText()
+  const nextComment = commentInput.value.trim()
+  if (!source) return null
+
+  if (commentPopoverSession.mode === 'create') {
+    if (!nextComment) return null
+
+    return applyMarkdownComment(source, {
+      start: commentPopoverSession.selection.sourceStart,
+      end: commentPopoverSession.selection.sourceEnd,
+    }, nextComment)
+  }
+
+  const comment = getMarkdownCommentById(commentPopoverSession.commentId)
+  if (!comment || !nextComment || nextComment === commentPopoverSession.initialComment.trim()) {
+    return null
+  }
+
+  return updateMarkdownComment(source, comment, nextComment)
+}
+
+function syncCommentPopoverActions() {
+  const isCreate = commentPopoverSession?.mode === 'create'
+  const isEdit = commentPopoverSession?.mode === 'edit'
+  const hasDraft = commentInput.value.trim().length > 0
+
+  commentInput.readOnly = false
+  commentSave.classList.toggle('hidden', !isCreate)
+  commentSave.disabled = !isCreate || !hasDraft
+  commentDelete.classList.toggle('hidden', !isEdit)
+  commentClose.classList.toggle('hidden', !isEdit)
 }
 
 function positionCommentPopover(anchorRect: DOMRect) {

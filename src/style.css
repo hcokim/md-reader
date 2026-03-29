@@ -725,7 +725,7 @@ body.drag-over .landing-icon {
 
 body.has-save-button #settings-toggle,
 body.has-save-button #settings-panel {
-  right: 84px;
+  right: 90px;
 }
 
 @keyframes settings-in {
@@ -878,19 +878,41 @@ body.has-save-button #settings-panel {
 .annotation-comment-popover-footer {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
   padding-top: 4px;
 }
 
+#annotation-comment-save,
+#annotation-comment-close,
 #annotation-comment-delete {
   border: 0;
   border-radius: 999px;
-  background: color-mix(in srgb, #d1242f 12%, transparent);
-  color: #b42318;
   font: inherit;
   font-size: 13px;
   font-weight: 600;
   padding: 8px 12px;
   cursor: pointer;
+}
+
+#annotation-comment-save,
+#annotation-comment-close {
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+  color: var(--fg);
+}
+
+#annotation-comment-save:hover,
+#annotation-comment-close:hover {
+  background: color-mix(in srgb, var(--fg) 12%, transparent);
+}
+
+#annotation-comment-save:disabled {
+  opacity: 0.48;
+  cursor: default;
+}
+
+#annotation-comment-delete {
+  background: color-mix(in srgb, #d1242f 12%, transparent);
+  color: #b42318;
 }
 
 #annotation-comment-delete:hover {
@@ -952,6 +974,7 @@ body.has-save-button #settings-panel {
 #content mark,
 #present-slide mark {
   background: var(--annotation-highlight-bg);
+  color: inherit;
   border-radius: 0.28em;
   box-shadow: inset 0 0 0 1px var(--annotation-highlight-outline);
 }
