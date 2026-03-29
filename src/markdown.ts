@@ -139,6 +139,8 @@ function doesTokenRenderBlock(
       return token.type === 'paragraph_open' && token.hidden !== true
     case 'code':
       return token.type === 'fence' || token.type === 'code_block'
+    case 'table-cell':
+      return token.type === 'td_open' || token.type === 'th_open'
     case 'thematic-break':
       return token.type === 'hr'
     default:

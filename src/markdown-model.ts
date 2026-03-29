@@ -19,6 +19,7 @@ export type MarkdownBlockKind =
   | 'paragraph'
   | 'code'
   | 'table'
+  | 'table-cell'
   | 'html'
   | 'thematic-break'
 
@@ -291,6 +292,8 @@ function getBlockKind(type: string): MarkdownBlockKind | null {
       return 'code'
     case 'table':
       return 'table'
+    case 'tableCell':
+      return 'table-cell'
     case 'html':
       return 'html'
     case 'thematicBreak':
@@ -341,7 +344,7 @@ function extractVisibleText(node: MarkdownAstNode): string {
     case 'tableRow':
       return joinChildren(node, ' | ')
     case 'tableCell':
-      return joinChildren(node, ' ')
+      return joinChildren(node, '')
     case 'list':
     case 'listItem':
     case 'blockquote':

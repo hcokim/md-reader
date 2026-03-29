@@ -235,6 +235,41 @@ describe('mapRenderedRangeToSourceRange', () => {
     expect(result!.start).toBe(0)
     expect(result!.end).toBe(11)
   })
+
+  it('creates source-mappable blocks for table cells', () => {
+    const source = '| Name | Value |\n| ---- | ----- |\n| foo  | bar   |'
+    const doc = buildMarkdownDocument(source)
+    const cells = doc.blocks.filter((b) => b.kind === 'table-cell')
+    expect(cells.length).toBe(4)
+    expect(cells[0].text).toBe('Name')
+    expect(cells[1].text).toBe('Value')
+    expect(cells[2].text).toBe('foo')
+    expect(cells[3].text).toBe('bar')
+    expect(cells.every((c) => c.isSourceMappable)).toBe(true)
+  })
+
+  it('maps source range within a table cell', () => {
+    const source = '| Name | Value |\n| ---- | ----- |\n| foo  | bar   |'
+    const doc = buildMarkdownDocument(source)
+    const cells = doc.blocks.filter((b) => b.kind === 'table-cell')
+    // "bar" cell: rendered text is "bar"
+    const barCell = cells[3]
+    const result = mapRenderedRangeToSourceRange(barCell, 0, 3)
+    expect(result).not.toBeNull()
+    expect(source.slice(result!.start, result!.end)).toBe('bar')
+  })
+
+  it('maps source range in table cell with formatting', () => {
+    const source = '| Name | Value |\n| ---- | ----- |\n| foo  | **bar** |'
+    const doc = buildMarkdownDocument(source)
+    const cells = doc.blocks.filter((b) => b.kind === 'table-cell')
+    const barCell = cells[3]
+    expect(barCell.text).toBe('bar')
+    expect(barCell.isSourceMappable).toBe(true)
+    const result = mapRenderedRangeToSourceRange(barCell, 0, 3)
+    expect(result).not.toBeNull()
+    expect(source.slice(result!.start, result!.end)).toBe('bar')
+  })
 })
 
 describe('mapRenderedRangeToSourceRanges', () => {

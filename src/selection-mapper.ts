@@ -31,7 +31,7 @@ export type SourceSelectionResult = {
   reason: SourceSelectionFailureReason | null
 }
 
-const SOURCE_BLOCK_SELECTOR = 'h1, h2, h3, h4, h5, h6, p, pre, hr, li'
+const SOURCE_BLOCK_SELECTOR = 'h1, h2, h3, h4, h5, h6, p, pre, hr, li, td, th'
 
 export function prepareSourceMappedBlocks(root: HTMLElement) {
   const document = getActiveMarkdownDocument()
@@ -199,6 +199,8 @@ function isCompatibleBlock(element: HTMLElement, block: MarkdownBlock): boolean 
       return tagName === 'P'
     case 'code':
       return tagName === 'PRE'
+    case 'table-cell':
+      return tagName === 'TD' || tagName === 'TH'
     case 'thematic-break':
       return tagName === 'HR'
     default:
