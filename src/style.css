@@ -1359,6 +1359,10 @@ body.has-save-button #present-toggle {
   align-items: flex-start;
 }
 
+.present-slide-content .present-source {
+  width: 100%;
+}
+
 .present-slide-content h1 {
   font-size: clamp(1.5rem, 3.5vw, 2.25rem);
   font-weight: 700;
