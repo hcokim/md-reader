@@ -676,9 +676,14 @@ function showToolbar(anchorRect: DOMRect, mode: 'selection' | 'highlight') {
 
   const toolbarRect = toolbar.getBoundingClientRect()
   const top = getFloatingTop(anchorRect, toolbarRect.height)
+  const placedBelow = top > anchorRect.top
   let left = anchorRect.left + anchorRect.width / 2 - toolbarRect.width / 2
   left = Math.max(12, Math.min(left, window.innerWidth - toolbarRect.width - 12))
 
+  toolbar.style.transformOrigin = `center ${placedBelow ? 'top' : 'bottom'}`
+  toolbar.style.animation = 'none'
+  toolbar.offsetHeight // force reflow
+  toolbar.style.animation = ''
   toolbar.style.left = `${left}px`
   toolbar.style.top = `${top}px`
 }
@@ -695,6 +700,9 @@ function openCommentPopoverForCreate(selection: PendingSelection) {
   }
   showSelectionPreview(selection.previewRects)
   commentPopover.classList.remove('hidden')
+  commentPopover.style.animation = 'none'
+  commentPopover.offsetHeight
+  commentPopover.style.animation = ''
   commentInput.value = ''
   syncCommentPopoverActions()
   resizeCommentInput()
@@ -719,6 +727,9 @@ function openCommentPopoverForEdit(
     initialComment: comment.comment,
   }
   commentPopover.classList.remove('hidden')
+  commentPopover.style.animation = 'none'
+  commentPopover.offsetHeight
+  commentPopover.style.animation = ''
   commentInput.value = comment.comment
   syncCommentPopoverActions()
   resizeCommentInput()
@@ -812,6 +823,7 @@ function syncCommentPopoverActions() {
 
 function positionCommentPopover(anchorRect: DOMRect) {
   const margin = 12
+  commentPopover.offsetHeight // force reflow so height reflects current content
   const popoverRect = commentPopover.getBoundingClientRect()
   const spaceAbove = anchorRect.top - margin
   const spaceBelow = window.innerHeight - anchorRect.bottom - margin
@@ -832,6 +844,7 @@ function positionCommentPopover(anchorRect: DOMRect) {
   let left = anchorRect.left + anchorRect.width / 2 - popoverRect.width / 2
   left = Math.max(margin, Math.min(left, window.innerWidth - popoverRect.width - margin))
 
+  commentPopover.style.transformOrigin = `center ${placeBelow ? 'top' : 'bottom'}`
   commentPopover.style.left = `${left}px`
   commentPopover.style.top = `${top}px`
 }

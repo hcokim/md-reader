@@ -20,7 +20,7 @@
 #file-sidebar:hover,
 #present-overlay:hover,
 #present-sidebar:hover,
-#present-dots:hover {
+#present-timeline:hover {
   scrollbar-color: color-mix(in srgb, var(--fg) 15%, transparent) transparent;
 }
 
@@ -42,7 +42,7 @@
 #file-sidebar:hover::-webkit-scrollbar-thumb,
 #present-overlay:hover::-webkit-scrollbar-thumb,
 #present-sidebar:hover::-webkit-scrollbar-thumb,
-#present-dots:hover::-webkit-scrollbar-thumb {
+#present-timeline:hover::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--fg) 15%, transparent);
 }
 
@@ -708,13 +708,13 @@ body.drag-over .landing-icon {
   right: 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: 6px;
+  padding: 8px;
   background: var(--controls-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--controls-border);
-  border-radius: 12px;
+  border-radius: 10px;
   box-shadow: var(--controls-shadow);
   z-index: 100;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -735,32 +735,33 @@ body.has-save-button #settings-panel {
 
 .control-group {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 4px;
 }
 
 .control-group label {
   color: var(--fg-muted);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  white-space: nowrap;
 }
 
 .control-group select {
   appearance: none;
   -webkit-appearance: none;
   background: transparent;
-  border: 1px solid var(--controls-border);
-  border-radius: 6px;
-  padding: 4px 24px 4px 8px;
+  border: none;
+  padding: 2px 20px 2px 4px;
   font-size: 13px;
   color: var(--fg);
   cursor: pointer;
   font-family: inherit;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpath d='M3 4.5l3 3 3-3'/%3E%3C/svg%3E");
+  text-align: right;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M2.5 3.75l2.5 2.5 2.5-2.5'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 6px center;
+  background-position: right 2px center;
 }
 
 /* --- Annotation Toolbar --- */
@@ -771,8 +772,8 @@ body.has-save-button #settings-panel {
   left: 0;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px;
+  gap: 4px;
+  padding: 4px;
   background: var(--controls-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -780,6 +781,18 @@ body.has-save-button #settings-panel {
   border-radius: 999px;
   box-shadow: var(--controls-shadow);
   z-index: 1004;
+  animation: float-in 0.12s ease-out;
+}
+
+@keyframes float-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .annotation-toolbar button {
@@ -790,7 +803,7 @@ body.has-save-button #settings-panel {
   font: inherit;
   font-size: 13px;
   font-weight: 600;
-  padding: 7px 12px;
+  padding: 5px 10px;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
@@ -853,6 +866,7 @@ body.has-save-button #settings-panel {
   box-shadow: var(--controls-shadow);
   z-index: 1005;
   overflow: hidden;
+  animation: float-in 0.12s ease-out;
 }
 
 #annotation-comment-input {
@@ -977,6 +991,7 @@ body.has-save-button #settings-panel {
   color: inherit;
   border-radius: 0.28em;
   box-shadow: inset 0 0 0 1px var(--annotation-highlight-outline);
+  cursor: pointer;
 }
 
 #content mark.markdown-comment-target,
@@ -1225,6 +1240,7 @@ body.has-save-button #present-toggle {
   bottom: 48px;
   width: 15%;
   cursor: pointer;
+  z-index: 1;
 }
 
 #present-prev-zone {
@@ -1260,6 +1276,8 @@ body.has-save-button #present-toggle {
   margin-bottom: 32px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   line-height: 1.4;
+  position: relative;
+  z-index: 2;
 }
 
 .present-breadcrumb-level {
@@ -1485,7 +1503,7 @@ body[data-color-mode="dark"] .present-body pre.shiki span {
   background: var(--bg);
 }
 
-#present-dots {
+#present-timeline {
   display: flex;
   align-items: center;
   gap: 1px;
@@ -1497,21 +1515,44 @@ body[data-color-mode="dark"] .present-body pre.shiki span {
 .present-seg {
   flex: 1 1 0;
   min-width: 0;
-  height: 4px;
+  height: 24px;
   border: none;
   padding: 0;
-  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+}
+
+.present-seg::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 6px;
+  transform: translateY(-50%);
   background: var(--fg-muted);
   opacity: 0.18;
-  cursor: pointer;
   transition: opacity 0.15s ease, background 0.15s ease;
 }
 
-.present-seg:hover {
+.present-seg:first-child::after {
+  border-radius: 999px 0 0 999px;
+}
+
+.present-seg:last-child::after {
+  border-radius: 0 999px 999px 0;
+}
+
+.present-seg:only-child::after {
+  border-radius: 999px;
+}
+
+.present-seg:hover::after {
   opacity: 0.45;
 }
 
-.present-seg.active {
+.present-seg.active::after {
   opacity: 1;
   background: var(--fg);
 }

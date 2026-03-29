@@ -133,9 +133,7 @@ export function initDropzone(ready: Promise<void>) {
   void loadSession().then((handles) => {
     if (handles.length > 0) {
       restoreBtn.classList.remove('hidden')
-      const count = handles.length
-      restoreBtn.querySelector('span')!.textContent =
-        count === 1 ? `Restore previous file` : `Restore ${count} previous files`
+      restoreBtn.querySelector('span')!.textContent = 'Restore previous session'
     }
   })
 

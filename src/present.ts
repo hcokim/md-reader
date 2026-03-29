@@ -3,7 +3,7 @@ import { hideAnnotationToolbar, refreshAnnotations } from './annotations.ts'
 const content = document.getElementById('content')!
 const presentOverlay = document.getElementById('present-overlay')!
 const presentSlide = document.getElementById('present-slide')!
-const presentDots = document.getElementById('present-dots')!
+const presentTimeline = document.getElementById('present-timeline')!
 const presentCounter = document.getElementById('present-counter')!
 const presentTooltip = document.getElementById('present-tooltip')!
 const presentClose = document.getElementById('present-close') as HTMLButtonElement
@@ -276,7 +276,7 @@ function goTo(index: number) {
 }
 
 function renderDots() {
-  presentDots.innerHTML = ''
+  presentTimeline.innerHTML = ''
 
   for (let i = 0; i < slides.length; i++) {
     const seg = document.createElement('button')
@@ -288,14 +288,14 @@ function renderDots() {
     seg.addEventListener('mouseenter', (e) => showTooltip(i, e.currentTarget as HTMLElement))
     seg.addEventListener('mouseleave', hideTooltip)
 
-    presentDots.appendChild(seg)
+    presentTimeline.appendChild(seg)
   }
 
   updateActiveDot()
 }
 
 function updateActiveDot() {
-  const segs = presentDots.children
+  const segs = presentTimeline.children
   for (let i = 0; i < segs.length; i++) {
     segs[i].classList.toggle('active', i === currentSlide)
   }
