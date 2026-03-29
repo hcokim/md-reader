@@ -1,8 +1,8 @@
 # The Field Guide to Markdown
 
-## A Totally Serious Reference Document
+## A Complete Expedition Through Every Feature
 
-Welcome. You've stumbled upon the most comprehensive, slightly unhinged guide to everything this markdown reader can do. Buckle up.
+This guide covers everything the markdown reader can do — text formatting, code blocks, math, presentations, and all the rest. Each section is a working example you can reference or copy into your own documents.
 
 ---
 
