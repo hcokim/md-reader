@@ -471,20 +471,20 @@ async function loadUrl(input: string) {
     // Strip YAML frontmatter, then prepend title and metadata
     const body = text.replace(/^---\s*\n[\s\S]*?\n---\s*(?:\n|$)/, '')
     const metaParts: string[] = []
-    if (meta.author) metaParts.push(meta.author)
-    if (meta.site) metaParts.push(meta.site)
+    if (meta.author) metaParts.push(escapeHtml(normalizeMetadataText(meta.author)))
+    if (meta.site) metaParts.push(escapeHtml(normalizeMetadataText(meta.site)))
     if (meta.published) {
       const d = new Date(meta.published)
       if (!isNaN(d.getTime())) metaParts.push(d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }))
     }
-    let header = `# ${title}\n\n`
+    let header = `# ${escapeMarkdownText(title)}\n\n`
     if (metaParts.length > 0 || meta.source) {
       header += '<p class="article-meta">'
       if (metaParts.length > 0) header += metaParts.join(' · ')
       if (meta.source && /^https?:\/\//i.test(meta.source)) {
-        const domain = meta.domain || new URL(meta.source).hostname
+        const domain = escapeHtml(normalizeMetadataText(meta.domain || new URL(meta.source).hostname))
         if (metaParts.length > 0) header += ' · '
-        header += `<a href="${escapeAttr(meta.source)}" rel="noopener noreferrer">${escapeHtml(domain)}</a>`
+        header += `<a href="${escapeAttr(meta.source)}" rel="noopener noreferrer">${domain}</a>`
       }
       header += '</p>\n\n'
     }
@@ -845,6 +845,19 @@ function escapeHtml(text: string): string {
   const div = document.createElement('div')
   div.textContent = text
   return div.innerHTML
+}
+
+function normalizeMetadataText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim()
+}
+
+function escapeMarkdownText(text: string): string {
+  return normalizeMetadataText(text)
+    .replace(/\\/g, '\\\\')
+    .replace(/([`*_{}[\]()#+\-!|>])/g, '\\$1')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
 }
 
 function escapeAttr(text: string): string {

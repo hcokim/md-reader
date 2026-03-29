@@ -80,22 +80,29 @@ export function render(text: string, document: MarkdownDocumentModel | null = nu
   const dirty = md.renderer.render(tokens, md.options, {})
 
   DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
-    if (data.attrName === 'style') {
-      const isCodeSpan = node.tagName === 'SPAN' && node.closest('pre') !== null
-      if (!isCodeSpan) {
-        data.keepAttr = false
-      }
+    if (data.attrName !== 'style') return
+
+    if (!shouldKeepStyleAttribute(node)) {
+      data.keepAttr = false
     }
   })
 
-  const clean = DOMPurify.sanitize(dirty, {
-    ADD_TAGS: ['section'],
-    ADD_ATTR: ['class', 'style', 'data-md-block-id', 'data-md-block-kind'],
-  })
+  try {
+    return DOMPurify.sanitize(dirty, {
+      ADD_TAGS: ['section'],
+      ADD_ATTR: ['class', 'style', 'data-md-block-id', 'data-md-block-kind'],
+    })
+  } finally {
+    DOMPurify.removeHook('uponSanitizeAttribute')
+  }
+}
 
-  DOMPurify.removeHook('uponSanitizeAttribute')
+function shouldKeepStyleAttribute(node: Element) {
+  if (node.closest('.katex') !== null) {
+    return true
+  }
 
-  return clean
+  return node.tagName === 'SPAN' && node.closest('pre') !== null
 }
 
 function annotateBlockTokens(tokens: MarkdownToken[], document: MarkdownDocumentModel) {
