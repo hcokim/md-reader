@@ -3,6 +3,7 @@ import { prepareAnnotationBlocks, setActiveAnnotationDocument } from './annotati
 import { registerActiveFileBridge } from './active-file.ts'
 import { deleteMarkdownDocument, setActiveMarkdownDocument, updateMarkdownDocument } from './markdown-state.ts'
 import { rerenderPresentation } from './present.ts'
+import { clearHistory, pushUndoState, redo, undo } from './undo-history.ts'
 
 const landing = document.getElementById('landing')!
 const reader = document.getElementById('reader')!
@@ -237,6 +238,26 @@ export function initDropzone(ready: Promise<void>) {
     void saveActiveFile()
   }
 
+  const handleUndoRedo = (e: KeyboardEvent) => {
+    if (!(e.metaKey || e.ctrlKey) || e.altKey) return
+    if (e.key !== 'z' && e.key !== 'Z') return
+    if (isTypingTarget(e.target)) return
+    if (!activeFileId) return
+
+    const file = sessionFiles.find((entry) => entry.id === activeFileId)
+    if (!file) return
+
+    const isRedo = e.shiftKey
+    const nextText = isRedo
+      ? redo(file.id, file.text)
+      : undo(file.id, file.text)
+
+    if (nextText === null) return
+
+    e.preventDefault()
+    applyUndoRedoText(file, nextText)
+  }
+
   const handleShortcut = (e: KeyboardEvent) => {
     const hasSidebarContent = sessionFiles.length > 1 || outlineItems.length > 0
     if (!hasSidebarContent) return
@@ -274,6 +295,7 @@ export function initDropzone(ready: Promise<void>) {
   saveFileButton.addEventListener('click', handleSaveClick)
   sidebarBackdrop.addEventListener('click', dismissSidebarIfNarrow)
   narrowQuery.addEventListener('change', handleViewportChange)
+  document.addEventListener('keydown', handleUndoRedo)
   document.addEventListener('keydown', handleShortcut)
 
   return () => {
@@ -289,6 +311,7 @@ export function initDropzone(ready: Promise<void>) {
     saveFileButton.removeEventListener('click', handleSaveClick)
     sidebarBackdrop.removeEventListener('click', dismissSidebarIfNarrow)
     narrowQuery.removeEventListener('change', handleViewportChange)
+    document.removeEventListener('keydown', handleUndoRedo)
     document.removeEventListener('keydown', handleShortcut)
     if (watchInterval) {
       clearInterval(watchInterval)
@@ -296,6 +319,7 @@ export function initDropzone(ready: Promise<void>) {
     }
     for (const file of sessionFiles) {
       deleteMarkdownDocument(file.id)
+      clearHistory(file.id)
     }
     sessionFiles = []
     activeFileId = null
@@ -678,6 +702,7 @@ export function updateActiveFileText(nextText: string): boolean {
   const file = sessionFiles.find((entry) => entry.id === activeFileId)
   if (!file || file.text === nextText) return false
 
+  pushUndoState(file.id, file.text)
   file.text = nextText
   file.isDirty = file.text !== file.savedText
   if (saveButtonFileId === file.id && file.isDirty) {
@@ -697,6 +722,28 @@ export function updateActiveFileText(nextText: string): boolean {
   }
 
   return true
+}
+
+function applyUndoRedoText(file: SessionFile, nextText: string) {
+  if (file.text === nextText) return
+
+  file.text = nextText
+  file.isDirty = file.text !== file.savedText
+  if (saveButtonFileId === file.id && file.isDirty) {
+    resetSaveButtonTransientState()
+  }
+
+  const scrollParent = content.parentElement
+  const scrollPos = scrollParent?.scrollTop ?? 0
+
+  renderSessionFile(file)
+  renderSidebar()
+  rerenderPresentation()
+  renderSaveButton()
+
+  if (scrollParent) {
+    scrollParent.scrollTop = scrollPos
+  }
 }
 
 function renderSessionFile(file: SessionFile) {
