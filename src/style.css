@@ -83,7 +83,7 @@ body[data-theme="github"] {
   --blockquote-fg: #656d76;
   --table-stripe: #f6f8fa;
   --heading-fg: #1f2328;
-  --controls-bg: rgba(255, 255, 255, 0.85);
+  --controls-bg: #ffffff;
   --controls-border: rgba(0, 0, 0, 0.1);
   --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
@@ -104,7 +104,7 @@ body[data-theme="serif"] {
   --blockquote-fg: #6b6b6b;
   --table-stripe: #f5f0e8;
   --heading-fg: #1a1a1a;
-  --controls-bg: rgba(250, 248, 245, 0.9);
+  --controls-bg: #faf8f5;
   --controls-border: rgba(0, 0, 0, 0.08);
   --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
@@ -126,7 +126,7 @@ body[data-theme="sans"] {
   --blockquote-fg: #737373;
   --table-stripe: #fafafa;
   --heading-fg: #0a0a0a;
-  --controls-bg: rgba(250, 250, 250, 0.9);
+  --controls-bg: #fafafa;
   --controls-border: rgba(0, 0, 0, 0.08);
   --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
@@ -147,7 +147,7 @@ body[data-theme="mono"] {
   --blockquote-fg: #958e84;
   --table-stripe: #221e1a;
   --heading-fg: #ede7de;
-  --controls-bg: rgba(29, 25, 22, 0.92);
+  --controls-bg: #1d1916;
   --controls-border: rgba(255, 255, 255, 0.08);
   --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
@@ -167,7 +167,7 @@ body[data-color-mode="dark"][data-theme="github"] {
   --blockquote-fg: #8b949e;
   --table-stripe: #161b22;
   --heading-fg: #f0f6fc;
-  --controls-bg: rgba(13, 17, 23, 0.88);
+  --controls-bg: #0d1117;
   --controls-border: rgba(255, 255, 255, 0.08);
   --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
@@ -185,7 +185,7 @@ body[data-color-mode="dark"][data-theme="serif"] {
   --blockquote-fg: #9a9488;
   --table-stripe: #1f1d19;
   --heading-fg: #ebe6de;
-  --controls-bg: rgba(28, 26, 23, 0.9);
+  --controls-bg: #1c1a17;
   --controls-border: rgba(255, 255, 255, 0.08);
   --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
@@ -203,7 +203,7 @@ body[data-color-mode="dark"][data-theme="sans"] {
   --blockquote-fg: #a0a0a0;
   --table-stripe: #161616;
   --heading-fg: #f5f5f5;
-  --controls-bg: rgba(17, 17, 17, 0.9);
+  --controls-bg: #111111;
   --controls-border: rgba(255, 255, 255, 0.08);
   --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
@@ -222,7 +222,7 @@ body[data-color-mode="light"][data-theme="mono"] {
   --blockquote-fg: #6e6e82;
   --table-stripe: #ededea;
   --heading-fg: #1a1a2e;
-  --controls-bg: rgba(245, 245, 240, 0.9);
+  --controls-bg: #f5f5f0;
   --controls-border: rgba(0, 0, 0, 0.1);
   --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
