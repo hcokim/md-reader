@@ -1,8 +1,8 @@
-# The Hitchhiker's Guide to Markdown
+# The Field Guide to Markdown
 
 ## A Totally Serious Reference Document
 
-Welcome, traveler. You've stumbled upon the most comprehensive, slightly unhinged guide to everything this markdown reader can do. Buckle up.
+Welcome. You've stumbled upon the most comprehensive, slightly unhinged guide to everything this markdown reader can do. Buckle up.
 
 ---
 
