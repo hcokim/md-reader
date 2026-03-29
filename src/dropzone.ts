@@ -1,7 +1,7 @@
 import { render } from './markdown.ts'
 import { prepareAnnotationBlocks, setActiveAnnotationDocument } from './annotations.ts'
 import { registerActiveFileBridge } from './active-file.ts'
-import { setActiveMarkdownDocument, updateMarkdownDocument } from './markdown-state.ts'
+import { deleteMarkdownDocument, setActiveMarkdownDocument, updateMarkdownDocument } from './markdown-state.ts'
 import { rerenderPresentation } from './present.ts'
 
 const landing = document.getElementById('landing')!
@@ -292,6 +292,15 @@ export function initDropzone(ready: Promise<void>) {
     sidebarBackdrop.removeEventListener('click', dismissSidebarIfNarrow)
     narrowQuery.removeEventListener('change', handleViewportChange)
     document.removeEventListener('keydown', handleShortcut)
+    if (watchInterval) {
+      clearInterval(watchInterval)
+      watchInterval = null
+    }
+    for (const file of sessionFiles) {
+      deleteMarkdownDocument(file.id)
+    }
+    sessionFiles = []
+    activeFileId = null
   }
 }
 
@@ -462,20 +471,20 @@ async function loadUrl(input: string) {
     // Strip YAML frontmatter, then prepend title and metadata
     const body = text.replace(/^---\s*\n[\s\S]*?\n---\s*(?:\n|$)/, '')
     const metaParts: string[] = []
-    if (meta.author) metaParts.push(meta.author)
-    if (meta.site) metaParts.push(meta.site)
+    if (meta.author) metaParts.push(escapeHtml(normalizeMetadataText(meta.author)))
+    if (meta.site) metaParts.push(escapeHtml(normalizeMetadataText(meta.site)))
     if (meta.published) {
       const d = new Date(meta.published)
       if (!isNaN(d.getTime())) metaParts.push(d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }))
     }
-    let header = `# ${title}\n\n`
+    let header = `# ${escapeMarkdownText(title)}\n\n`
     if (metaParts.length > 0 || meta.source) {
       header += '<p class="article-meta">'
       if (metaParts.length > 0) header += metaParts.join(' · ')
-      if (meta.source) {
-        const domain = meta.domain || new URL(meta.source).hostname
+      if (meta.source && /^https?:\/\//i.test(meta.source)) {
+        const domain = escapeHtml(normalizeMetadataText(meta.domain || new URL(meta.source).hostname))
         if (metaParts.length > 0) header += ' · '
-        header += `<a href="${meta.source}">${domain}</a>`
+        header += `<a href="${escapeAttr(meta.source)}" rel="noopener noreferrer">${domain}</a>`
       }
       header += '</p>\n\n'
     }
@@ -830,4 +839,32 @@ function showReader(fileName: string) {
   settingsToggle.classList.remove('hidden')
   presentToggle.classList.remove('hidden')
   document.title = fileName.length > 100 ? fileName.slice(0, 100) + '\u2026' : fileName
+}
+
+function escapeHtml(text: string): string {
+  const div = document.createElement('div')
+  div.textContent = text
+  return div.innerHTML
+}
+
+function normalizeMetadataText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim()
+}
+
+function escapeMarkdownText(text: string): string {
+  return normalizeMetadataText(text)
+    .replace(/\\/g, '\\\\')
+    .replace(/([`*_{}[\]()#+\-!|>])/g, '\\$1')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+function escapeAttr(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
 }

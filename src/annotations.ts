@@ -71,6 +71,7 @@ let commentPopoverSession: CommentPopoverSession | null = null
 let selectionInProgress = false
 let lastRejectedSelectionSignature: string | null = null
 let feedbackHideTimer: number | null = null
+let selectionChangeRaf: number | null = null
 
 export function initAnnotations() {
   const syncPendingSelectionFromDom = (options: { showSelectionToolbar: boolean }) => {
@@ -314,7 +315,15 @@ export function initAnnotations() {
     dismissCommentPopover()
   }
 
-  document.addEventListener('selectionchange', handleSelectionChange)
+  const debouncedSelectionChange = () => {
+    if (selectionChangeRaf !== null) cancelAnimationFrame(selectionChangeRaf)
+    selectionChangeRaf = requestAnimationFrame(() => {
+      selectionChangeRaf = null
+      handleSelectionChange()
+    })
+  }
+
+  document.addEventListener('selectionchange', debouncedSelectionChange)
   document.addEventListener('mousedown', handleDocumentPointerDown, true)
   document.addEventListener('mouseup', handleDocumentPointerUp, true)
   document.addEventListener('keydown', handleEscape, true)
@@ -331,7 +340,8 @@ export function initAnnotations() {
   presentSlide.addEventListener('click', handleSurfaceClick)
 
   return () => {
-    document.removeEventListener('selectionchange', handleSelectionChange)
+    if (selectionChangeRaf !== null) cancelAnimationFrame(selectionChangeRaf)
+    document.removeEventListener('selectionchange', debouncedSelectionChange)
     document.removeEventListener('mousedown', handleDocumentPointerDown, true)
     document.removeEventListener('mouseup', handleDocumentPointerUp, true)
     document.removeEventListener('keydown', handleEscape, true)
@@ -883,10 +893,11 @@ function getAttachedFootnoteRef(mark: HTMLElement) {
 
 function getCommentTargetElement(commentId: string) {
   const presentSource = presentSlide.querySelector<HTMLElement>('.present-source')
-  const presentComment = presentSource?.querySelector<HTMLElement>(`${COMMENT_TARGET_SELECTOR}[data-md-comment-id="${commentId}"]`)
+  const escapedId = CSS.escape(commentId)
+  const presentComment = presentSource?.querySelector<HTMLElement>(`${COMMENT_TARGET_SELECTOR}[data-md-comment-id="${escapedId}"]`)
   if (presentComment) return presentComment
 
-  return content.querySelector<HTMLElement>(`${COMMENT_TARGET_SELECTOR}[data-md-comment-id="${commentId}"]`)
+  return content.querySelector<HTMLElement>(`${COMMENT_TARGET_SELECTOR}[data-md-comment-id="${escapedId}"]`)
 }
 
 function getMarkdownCommentById(commentId: string) {
