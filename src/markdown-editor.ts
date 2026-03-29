@@ -13,6 +13,19 @@ export function applyMarkdownHighlight(source: string, range: SourceRange): stri
   return `${source.slice(0, start)}==${source.slice(start, end)}==${source.slice(end)}`
 }
 
+export function applyMarkdownHighlightRanges(source: string, ranges: SourceRange[]): string {
+  if (ranges.length === 1) return applyMarkdownHighlight(source, ranges[0])
+
+  let result = source
+  for (let i = ranges.length - 1; i >= 0; i--) {
+    const trimmed = trimSourceRangeWhitespace(result, ranges[i])
+    if (trimmed) {
+      result = applyMarkdownHighlight(result, trimmed)
+    }
+  }
+  return result
+}
+
 export function removeMarkdownHighlight(source: string, range: SourceRange): string {
   const normalizedRange = normalizeRange(source, range)
   if (!normalizedRange) return source
@@ -46,6 +59,40 @@ export function applyMarkdownComment(
   const nextSource = `${source.slice(0, alreadyHighlighted ? normalizedRange.start - 2 : normalizedRange.start)}${anchor}${source.slice(alreadyHighlighted ? normalizedRange.end + 2 : normalizedRange.end)}`
 
   return appendFootnoteDefinition(nextSource, commentId, note)
+}
+
+export function applyMarkdownCommentRanges(
+  source: string,
+  ranges: SourceRange[],
+  comment: string,
+): string {
+  if (ranges.length === 1) return applyMarkdownComment(source, ranges[0], comment)
+
+  const note = sanitizeFootnoteComment(comment)
+  if (!note) return source
+
+  const commentId = buildCommentId(source)
+  let result = source
+
+  for (let i = ranges.length - 1; i >= 0; i--) {
+    const trimmed = trimSourceRangeWhitespace(result, ranges[i])
+    if (!trimmed) continue
+
+    if (i === ranges.length - 1) {
+      const range = normalizeRange(result, trimmed)
+      if (!range) continue
+      const selectedSource = result.slice(range.start, range.end)
+      const alreadyHighlighted = isHighlightedRange(result, range)
+      const anchor = alreadyHighlighted
+        ? `${result.slice(range.start - 2, range.end + 2)}[^${commentId}]`
+        : `==${selectedSource}==[^${commentId}]`
+      result = `${result.slice(0, alreadyHighlighted ? range.start - 2 : range.start)}${anchor}${result.slice(alreadyHighlighted ? range.end + 2 : range.end)}`
+    } else {
+      result = applyMarkdownHighlight(result, trimmed)
+    }
+  }
+
+  return appendFootnoteDefinition(result, commentId, note)
 }
 
 export function updateMarkdownComment(
@@ -87,6 +134,16 @@ export function replaceMarkdownRange(
   if (!normalizedRange) return source
 
   return `${source.slice(0, normalizedRange.start)}${nextText}${source.slice(normalizedRange.end)}`
+}
+
+function trimSourceRangeWhitespace(source: string, range: SourceRange): SourceRange | null {
+  let { start, end } = range
+  start = Math.max(0, Math.min(start, end))
+  end = Math.min(source.length, Math.max(range.start, range.end))
+  while (start < end && /\s/.test(source[start])) start++
+  while (end > start && /\s/.test(source[end - 1])) end--
+  if (start >= end) return null
+  return { start, end }
 }
 
 function normalizeRange(source: string, range: SourceRange): SourceRange | null {

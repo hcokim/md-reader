@@ -3,6 +3,7 @@ import {
   buildMarkdownDocument,
   findMarkdownBlockAtOffset,
   mapRenderedRangeToSourceRange,
+  mapRenderedRangeToSourceRanges,
 } from './markdown-model.ts'
 
 describe('buildMarkdownDocument', () => {
@@ -233,5 +234,102 @@ describe('mapRenderedRangeToSourceRange', () => {
     expect(result).not.toBeNull()
     expect(result!.start).toBe(0)
     expect(result!.end).toBe(11)
+  })
+})
+
+describe('mapRenderedRangeToSourceRanges', () => {
+  it('returns a single range for plain text', () => {
+    const doc = buildMarkdownDocument('Hello world')
+    const block = doc.blocks[0]
+    const result = mapRenderedRangeToSourceRanges(block, 0, 5)
+    expect(result).toEqual([{ start: 0, end: 5 }])
+  })
+
+  it('returns a single range within bold text', () => {
+    const doc = buildMarkdownDocument('**Hello world**')
+    const block = doc.blocks[0]
+    // "Hello" = rendered 0..5, all within bold
+    const result = mapRenderedRangeToSourceRanges(block, 0, 5)
+    expect(result).toEqual([{ start: 2, end: 7 }])
+  })
+
+  it('splits ranges across bold boundary', () => {
+    // Source: "Say **hello** world"
+    // Segments: "Say " (0-4), "hello" (6-11), " world" (13-19)
+    // Rendered: "Say hello world" (0-15)
+    const source = 'Say **hello** world'
+    const doc = buildMarkdownDocument(source)
+    const block = doc.blocks[0]
+
+    // Select "Say hello" = rendered 0..9
+    const result = mapRenderedRangeToSourceRanges(block, 0, 9)
+    expect(result).toEqual([
+      { start: 0, end: 4 },   // "Say "
+      { start: 6, end: 11 },  // "hello"
+    ])
+  })
+
+  it('splits ranges across bold into trailing text', () => {
+    // Source: "**Title:** Copy"
+    // Segments: "Title:" (2-8), " Copy" (10-15)
+    // Rendered: "Title: Copy" (0-11)
+    const source = '**Title:** Copy'
+    const doc = buildMarkdownDocument(source)
+    const block = doc.blocks[0]
+
+    // Select "Title: Cop" = rendered 0..10
+    const result = mapRenderedRangeToSourceRanges(block, 0, 10)
+    expect(result).toEqual([
+      { start: 2, end: 8 },   // "Title:"
+      { start: 10, end: 14 }, // " Cop"
+    ])
+  })
+
+  it('splits ranges across italic boundary', () => {
+    // Source: "Say *hello* world"
+    //          0123 45678 9 01234 56
+    // Segments: "Say " (0-4), "hello" (5-10), " world" (11-17)
+    const source = 'Say *hello* world'
+    const doc = buildMarkdownDocument(source)
+    const block = doc.blocks[0]
+
+    // Select "y hello w" = rendered 2..11
+    const result = mapRenderedRangeToSourceRanges(block, 2, 11)
+    expect(result).toEqual([
+      { start: 2, end: 4 },   // "y "
+      { start: 5, end: 10 },  // "hello"
+      { start: 11, end: 13 }, // " w"
+    ])
+  })
+
+  it('splits ranges across multiple formatting boundaries', () => {
+    // Source: "**bold** and *italic*"
+    // Segments: "bold" (2-6), " and " (8-13), "italic" (14-20)
+    const source = '**bold** and *italic*'
+    const doc = buildMarkdownDocument(source)
+    const block = doc.blocks[0]
+
+    // Select all: "bold and italic" = rendered 0..15
+    const result = mapRenderedRangeToSourceRanges(block, 0, 15)
+    expect(result).toEqual([
+      { start: 2, end: 6 },   // "bold"
+      { start: 8, end: 13 },  // " and "
+      { start: 14, end: 20 }, // "italic"
+    ])
+  })
+
+  it('returns null for non-source-mappable block', () => {
+    const doc = buildMarkdownDocument('| A | B |\n| - | - |\n| 1 | 2 |')
+    const table = doc.blocks.find((b) => b.kind === 'table')
+    expect(table).toBeDefined()
+    expect(mapRenderedRangeToSourceRanges(table!, 0, 1)).toBeNull()
+  })
+
+  it('returns null for invalid range', () => {
+    const doc = buildMarkdownDocument('Hello')
+    const block = doc.blocks[0]
+    expect(mapRenderedRangeToSourceRanges(block, 5, 3)).toBeNull()
+    expect(mapRenderedRangeToSourceRanges(block, -1, 3)).toBeNull()
+    expect(mapRenderedRangeToSourceRanges(block, 0, 100)).toBeNull()
   })
 })

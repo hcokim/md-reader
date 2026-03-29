@@ -1,5 +1,6 @@
 import {
   mapRenderedRangeToSourceRange,
+  mapRenderedRangeToSourceRanges,
   type MarkdownBlock,
 } from './markdown-model.ts'
 import { getActiveMarkdownDocument } from './markdown-state.ts'
@@ -12,6 +13,7 @@ export type SourceMappedSelection = {
   renderedEndInBlock: number
   sourceStart: number
   sourceEnd: number
+  sourceRanges: { start: number; end: number }[]
 }
 
 export type SourceSelectionFailureReason =
@@ -123,7 +125,24 @@ export function mapRangeToSourceSelectionDetailed(
   }
 
   const sourceRange = mapRenderedRangeToSourceRange(block, renderedStartInBlock, renderedEndInBlock)
-  if (!sourceRange) {
+  if (sourceRange) {
+    return {
+      selection: {
+        block,
+        blockElement: startBlock,
+        quote,
+        renderedStartInBlock,
+        renderedEndInBlock,
+        sourceStart: sourceRange.start,
+        sourceEnd: sourceRange.end,
+        sourceRanges: [sourceRange],
+      },
+      reason: null,
+    }
+  }
+
+  const sourceRanges = mapRenderedRangeToSourceRanges(block, renderedStartInBlock, renderedEndInBlock)
+  if (!sourceRanges || sourceRanges.length === 0) {
     return { selection: null, reason: 'unsupported-source-range' }
   }
 
@@ -134,8 +153,9 @@ export function mapRangeToSourceSelectionDetailed(
       quote,
       renderedStartInBlock,
       renderedEndInBlock,
-      sourceStart: sourceRange.start,
-      sourceEnd: sourceRange.end,
+      sourceStart: sourceRanges[0].start,
+      sourceEnd: sourceRanges[sourceRanges.length - 1].end,
+      sourceRanges,
     },
     reason: null,
   }

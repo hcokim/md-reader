@@ -1,7 +1,7 @@
 import { getActiveFileText, updateActiveFileText } from './active-file.ts'
 import {
-  applyMarkdownComment,
-  applyMarkdownHighlight,
+  applyMarkdownCommentRanges,
+  applyMarkdownHighlightRanges,
   removeMarkdownComment,
   removeMarkdownHighlight,
   updateMarkdownComment,
@@ -42,6 +42,7 @@ type PendingSelection = {
   endInBlock: number
   sourceStart: number
   sourceEnd: number
+  sourceRanges: { start: number; end: number }[]
   rect: DOMRect
   previewRects: SelectionPreviewRect[]
 }
@@ -136,10 +137,7 @@ export function initAnnotations() {
     const source = getActiveFileText()
     if (!source) return
 
-    const nextSource = applyMarkdownHighlight(source, {
-      start: pendingSelection.sourceStart,
-      end: pendingSelection.sourceEnd,
-    })
+    const nextSource = applyMarkdownHighlightRanges(source, pendingSelection.sourceRanges)
 
     clearBrowserSelection()
     clearPendingState()
@@ -483,6 +481,7 @@ function resolveSelectionCandidate(
       endInBlock,
       sourceStart: mappedSelection.selection.sourceStart,
       sourceEnd: mappedSelection.selection.sourceEnd,
+      sourceRanges: mappedSelection.selection.sourceRanges,
       rect,
       previewRects: getPreviewRects(range, rect),
     },
@@ -657,7 +656,7 @@ function getSelectionFailureMessage(reason: string | SourceSelectionFailureReaso
     case 'different-blocks':
       return 'Select within one paragraph, heading, or list item.'
     case 'unsupported-source-range':
-      return 'This selection crosses markdown formatting. Try a smaller range that stays within plain text.'
+      return 'This selection could not be mapped to the markdown source.'
     case 'inside-existing-annotation':
       return 'This text already has an annotation. Click it to edit or remove it.'
     case 'unmapped-block':
@@ -795,10 +794,7 @@ function buildCommentPopoverSource() {
   if (commentPopoverSession.mode === 'create') {
     if (!nextComment) return null
 
-    return applyMarkdownComment(source, {
-      start: commentPopoverSession.selection.sourceStart,
-      end: commentPopoverSession.selection.sourceEnd,
-    }, nextComment)
+    return applyMarkdownCommentRanges(source, commentPopoverSession.selection.sourceRanges, nextComment)
   }
 
   const comment = getMarkdownCommentById(commentPopoverSession.commentId)

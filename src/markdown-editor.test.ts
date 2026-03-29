@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import {
   applyMarkdownHighlight,
+  applyMarkdownHighlightRanges,
   removeMarkdownHighlight,
   applyMarkdownComment,
+  applyMarkdownCommentRanges,
   updateMarkdownComment,
   removeMarkdownComment,
   replaceMarkdownRange,
@@ -64,6 +66,61 @@ describe('removeMarkdownHighlight', () => {
 
     const restored = removeMarkdownHighlight(highlighted, { start: 8, end: 17 })
     expect(restored).toBe(original)
+  })
+})
+
+describe('applyMarkdownHighlightRanges', () => {
+  it('delegates to applyMarkdownHighlight for single range', () => {
+    expect(applyMarkdownHighlightRanges('Hello world', [{ start: 6, end: 11 }]))
+      .toBe('Hello ==world==')
+  })
+
+  it('wraps multiple ranges across bold boundary', () => {
+    // Source: "**Title:** Copy" — select "Title:" (2-8) and " Cop" (10-14)
+    // Whitespace trimmed from range boundaries so == markers are flanking-valid
+    const result = applyMarkdownHighlightRanges('**Title:** Copy', [
+      { start: 2, end: 8 },
+      { start: 10, end: 14 },
+    ])
+    expect(result).toBe('**==Title:==** ==Cop==y')
+  })
+
+  it('wraps multiple ranges across italic boundary', () => {
+    // Source: "Say *hello* world" — select "y " (2-4), "hello" (5-10), " w" (11-13)
+    // Whitespace trimmed from each range boundary
+    const result = applyMarkdownHighlightRanges('Say *hello* world', [
+      { start: 2, end: 4 },
+      { start: 5, end: 10 },
+      { start: 11, end: 13 },
+    ])
+    expect(result).toBe('Sa==y== *==hello==* ==w==orld')
+  })
+
+  it('handles the GitHub example from README', () => {
+    // Source: "**GitHub** — clean system sans-serif"
+    //          01234567890123456...
+    // "tHub" = source 4-8, " — clean system s" = source 10-27
+    const result = applyMarkdownHighlightRanges(
+      '**GitHub** — clean system sans-serif',
+      [{ start: 4, end: 8 }, { start: 10, end: 27 }],
+    )
+    // Leading space trimmed from second range so == isn't adjacent to **
+    expect(result).toBe('**Gi==tHub==** ==— clean system s==ans-serif')
+  })
+})
+
+describe('applyMarkdownCommentRanges', () => {
+  it('delegates to applyMarkdownComment for single range', () => {
+    const result = applyMarkdownCommentRanges('Hello world', [{ start: 6, end: 11 }], 'A note')
+    expect(result).toBe('Hello ==world==[^comment-1]\n\n[^comment-1]: A note')
+  })
+
+  it('applies multi-range comment with footnote on last range', () => {
+    const result = applyMarkdownCommentRanges('**Title:** Copy', [
+      { start: 2, end: 8 },
+      { start: 10, end: 14 },
+    ], 'My comment')
+    expect(result).toBe('**==Title:==** ==Cop==[^comment-1]y\n\n[^comment-1]: My comment')
   })
 })
 
