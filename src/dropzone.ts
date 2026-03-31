@@ -57,25 +57,47 @@ async function saveSession(handles: FileSystemFileHandle[]) {
   try {
     const db = await openDb()
     const tx = db.transaction(DB_STORE, 'readwrite')
-    tx.objectStore(DB_STORE).put(handles, 'handles')
+    const store = tx.objectStore(DB_STORE)
+    store.put(handles, 'handles')
+
+    // Persist scroll positions keyed by file name
+    const scrollParent = content.parentElement
+    if (activeFileId && scrollParent) {
+      scrollPositions.set(activeFileId, scrollParent.scrollTop)
+    }
+    const scrollData: Record<string, number> = {}
+    for (const file of sessionFiles) {
+      const pos = scrollPositions.get(file.id)
+      if (pos !== undefined && pos > 0) {
+        scrollData[file.name] = pos
+      }
+    }
+    store.put(scrollData, 'scrollPositions')
+
     db.close()
   } catch {
     // IndexedDB unavailable — ignore
   }
 }
 
-async function loadSession(): Promise<FileSystemFileHandle[]> {
+async function loadSession(): Promise<{ handles: FileSystemFileHandle[], scrollData: Record<string, number> }> {
   try {
     const db = await openDb()
     return new Promise((resolve) => {
       const tx = db.transaction(DB_STORE, 'readonly')
-      const req = tx.objectStore(DB_STORE).get('handles')
-      req.onsuccess = () => resolve(req.result ?? [])
-      req.onerror = () => resolve([])
+      const store = tx.objectStore(DB_STORE)
+      const handlesReq = store.get('handles')
+      const scrollReq = store.get('scrollPositions')
+      let handles: FileSystemFileHandle[] = []
+      let scrollData: Record<string, number> = {}
+      handlesReq.onsuccess = () => { handles = handlesReq.result ?? [] }
+      scrollReq.onsuccess = () => { scrollData = scrollReq.result ?? {} }
+      tx.oncomplete = () => { resolve({ handles, scrollData }) }
+      tx.onerror = () => resolve({ handles: [], scrollData: {} })
       db.close()
     })
   } catch {
-    return []
+    return { handles: [], scrollData: {} }
   }
 }
 
@@ -83,7 +105,9 @@ async function clearSession() {
   try {
     const db = await openDb()
     const tx = db.transaction(DB_STORE, 'readwrite')
-    tx.objectStore(DB_STORE).delete('handles')
+    const store = tx.objectStore(DB_STORE)
+    store.delete('handles')
+    store.delete('scrollPositions')
     db.close()
   } catch {
     // ignore
@@ -93,6 +117,7 @@ async function clearSession() {
 let markdownReady: Promise<void>
 let sessionFiles: SessionFile[] = []
 let activeFileId: string | null = null
+const scrollPositions = new Map<string, number>()
 let outlineItems: OutlineItem[] = []
 let isSidebarCollapsed = false
 let fileCounter = 0
@@ -131,7 +156,7 @@ export function initDropzone(ready: Promise<void>) {
   })
 
   // Check for a restorable session and show the button if available
-  void loadSession().then((handles) => {
+  void loadSession().then(({ handles }) => {
     if (handles.length > 0) {
       restoreBtn.classList.remove('hidden')
       restoreBtn.querySelector('span')!.textContent = 'Restore previous session'
@@ -199,7 +224,7 @@ export function initDropzone(ready: Promise<void>) {
   }
 
   const handleRestore = async () => {
-    const handles = await loadSession()
+    const { handles, scrollData } = await loadSession()
     if (handles.length === 0) return
 
     // Request permission — needs user gesture (this click counts)
@@ -214,7 +239,7 @@ export function initDropzone(ready: Promise<void>) {
     }
 
     if (permitted.length > 0) {
-      void loadFileHandles(permitted)
+      void loadFileHandles(permitted, scrollData)
     } else {
       restoreBtn.querySelector('span')!.textContent = 'Permission denied'
       setTimeout(() => { restoreBtn.classList.add('hidden') }, 2000)
@@ -298,6 +323,17 @@ export function initDropzone(ready: Promise<void>) {
   document.addEventListener('keydown', handleUndoRedo)
   document.addEventListener('keydown', handleShortcut)
 
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'hidden') {
+      const hasHandles = sessionFiles.some((f) => f.handle)
+      if (hasHandles) {
+        const allHandles = sessionFiles.filter((f) => f.handle).map((f) => f.handle!)
+        void saveSession(allHandles)
+      }
+    }
+  }
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+
   return () => {
     openLink.removeEventListener('click', handleOpenClick)
     fileInput.removeEventListener('change', handleInputChange)
@@ -313,6 +349,7 @@ export function initDropzone(ready: Promise<void>) {
     narrowQuery.removeEventListener('change', handleViewportChange)
     document.removeEventListener('keydown', handleUndoRedo)
     document.removeEventListener('keydown', handleShortcut)
+    document.removeEventListener('visibilitychange', handleVisibilityChange)
     if (watchInterval) {
       clearInterval(watchInterval)
       watchInterval = null
@@ -323,6 +360,7 @@ export function initDropzone(ready: Promise<void>) {
     }
     sessionFiles = []
     activeFileId = null
+    scrollPositions.clear()
   }
 }
 
@@ -356,7 +394,7 @@ async function loadFiles(files: File[]) {
   void clearSession()
 }
 
-async function loadFileHandles(handles: FileSystemFileHandle[]) {
+async function loadFileHandles(handles: FileSystemFileHandle[], restoredScrollData?: Record<string, number>) {
   const readable = handles.filter((h) => isReadableName(h.name))
   if (readable.length === 0) return
 
@@ -380,6 +418,16 @@ async function loadFileHandles(handles: FileSystemFileHandle[]) {
   }
 
   sessionFiles = [...sessionFiles, ...loadedFiles]
+
+  // Restore saved scroll positions from session data (keyed by file name)
+  if (restoredScrollData) {
+    for (const file of loadedFiles) {
+      const pos = restoredScrollData[file.name]
+      if (pos !== undefined && pos > 0) {
+        scrollPositions.set(file.id, pos)
+      }
+    }
+  }
 
   if (sessionFiles.length > 1 && activeFileId !== null) {
     isSidebarCollapsed = false
@@ -680,6 +728,12 @@ async function saveActiveFile() {
 }
 
 function setActiveFile(fileId: string) {
+  // Save current scroll position before switching
+  const scrollParent = content.parentElement
+  if (activeFileId && scrollParent) {
+    scrollPositions.set(activeFileId, scrollParent.scrollTop)
+  }
+
   activeFileId = fileId
   const file = sessionFiles.find((entry) => entry.id === fileId)
   if (!file) return
@@ -689,6 +743,11 @@ function setActiveFile(fileId: string) {
   showReader(file.name)
   renderSidebar()
   renderSaveButton()
+
+  // Restore saved scroll position, or stay at top for new files
+  if (scrollParent) {
+    scrollParent.scrollTop = scrollPositions.get(fileId) ?? 0
+  }
 }
 
 export function getActiveFileText(): string | null {
