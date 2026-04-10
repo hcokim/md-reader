@@ -2,7 +2,7 @@ const THEME_KEY = 'md-reader-theme'
 const WIDTH_KEY = 'md-reader-width'
 const COLOR_MODE_KEY = 'md-reader-color-mode'
 
-export type Theme = 'github' | 'serif' | 'sans' | 'mono'
+export type Theme = 'github' | 'serif' | 'sans' | 'mono' | 'miranda'
 export type Width = 'narrow' | 'medium' | 'wide'
 export type ColorMode = 'light' | 'dark' | 'auto'
 

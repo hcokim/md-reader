@@ -152,6 +152,28 @@ body[data-theme="mono"] {
   --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
+body[data-theme="miranda"] {
+  --font-body: "Miranda Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-size: 17px;
+  --line-height: 1.65;
+  --letter-spacing: -0.01em;
+  --bg: #f8f9fc;
+  --fg: #1a1d27;
+  --fg-muted: #6b7084;
+  --link: #4361ee;
+  --border: #dfe2ea;
+  --border-heavy: #c8ccd8;
+  --code-bg: #f0f1f6;
+  --code-fg: #1a1d27;
+  --blockquote-border: #c8ccd8;
+  --blockquote-fg: #6b7084;
+  --table-stripe: #f3f4f8;
+  --heading-fg: #0f1119;
+  --controls-bg: #f8f9fc;
+  --controls-border: rgba(0, 0, 0, 0.08);
+  --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
 /* --- Large viewport font scaling --- */
 
 @media (min-width: 1800px) {
@@ -159,6 +181,7 @@ body[data-theme="mono"] {
   body[data-theme="serif"]  { --font-size: 20px; }
   body[data-theme="sans"]   { --font-size: 18px; }
   body[data-theme="mono"]   { --font-size: 15px; }
+  body[data-theme="miranda"] { --font-size: 19px; }
 }
 
 @media (min-width: 2200px) {
@@ -166,6 +189,7 @@ body[data-theme="mono"] {
   body[data-theme="serif"]  { --font-size: 22px; }
   body[data-theme="sans"]   { --font-size: 20px; }
   body[data-theme="mono"]   { --font-size: 16px; }
+  body[data-theme="miranda"] { --font-size: 21px; }
 }
 
 /* --- Dark mode overrides --- */
@@ -220,6 +244,24 @@ body[data-color-mode="dark"][data-theme="sans"] {
   --table-stripe: #161616;
   --heading-fg: #f5f5f5;
   --controls-bg: #111111;
+  --controls-border: rgba(255, 255, 255, 0.08);
+  --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+body[data-color-mode="dark"][data-theme="miranda"] {
+  --bg: #12131a;
+  --fg: #e2e4ed;
+  --fg-muted: #8e91a4;
+  --link: #7b93f7;
+  --border: #282a36;
+  --border-heavy: #383b4a;
+  --code-bg: #1a1b24;
+  --code-fg: #e2e4ed;
+  --blockquote-border: #383b4a;
+  --blockquote-fg: #8e91a4;
+  --table-stripe: #171822;
+  --heading-fg: #f0f1f7;
+  --controls-bg: #12131a;
   --controls-border: rgba(255, 255, 255, 0.08);
   --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
