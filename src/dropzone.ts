@@ -301,9 +301,12 @@ export function initDropzone(ready: Promise<void>) {
   }
 
   const narrowQuery = window.matchMedia('(max-width: 900px)')
+  const wideQuery = window.matchMedia('(min-width: 1800px)')
   const handleViewportChange = () => {
     if (narrowQuery.matches && !isSidebarCollapsed) {
       isSidebarCollapsed = true
+    } else if (wideQuery.matches && isSidebarCollapsed) {
+      isSidebarCollapsed = false
     }
     renderSidebar()
   }
@@ -320,6 +323,7 @@ export function initDropzone(ready: Promise<void>) {
   saveFileButton.addEventListener('click', handleSaveClick)
   sidebarBackdrop.addEventListener('click', dismissSidebarIfNarrow)
   narrowQuery.addEventListener('change', handleViewportChange)
+  wideQuery.addEventListener('change', handleViewportChange)
   document.addEventListener('keydown', handleUndoRedo)
   document.addEventListener('keydown', handleShortcut)
 
@@ -739,7 +743,8 @@ function setActiveFile(fileId: string) {
   if (!file) return
 
   renderSessionFile(file)
-  isSidebarCollapsed = outlineItems.length <= 5 && sessionFiles.length <= 1
+  const isWideViewport = window.matchMedia('(min-width: 1800px)').matches
+  isSidebarCollapsed = !isWideViewport && outlineItems.length <= 5 && sessionFiles.length <= 1
   showReader(file.name)
   renderSidebar()
   renderSaveButton()
