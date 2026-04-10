@@ -249,6 +249,18 @@ body[data-width="narrow"] #content { max-width: 640px; }
 body[data-width="medium"] #content { max-width: 800px; }
 body[data-width="wide"]   #content { max-width: 1100px; }
 
+@media (min-width: 1800px) {
+  body[data-width="narrow"] #content { max-width: 800px; }
+  body[data-width="medium"] #content { max-width: 1000px; }
+  body[data-width="wide"]   #content { max-width: 1380px; }
+}
+
+@media (min-width: 2200px) {
+  body[data-width="narrow"] #content { max-width: 960px; }
+  body[data-width="medium"] #content { max-width: 1200px; }
+  body[data-width="wide"]   #content { max-width: 1650px; }
+}
+
 /* --- Hidden utility --- */
 
 .hidden {
