@@ -51,7 +51,7 @@ export async function initMarkdown(): Promise<void> {
     engine: createOnigurumaEngine(import('shiki/wasm')),
   })
 
-  md = MarkdownIt({ html: true, linkify: true, typographer: true })
+  md = MarkdownIt({ html: true, linkify: true, typographer: true, breaks: true })
 
   md.use(fromHighlighter(highlighter as unknown as HighlighterGeneric<string, string>, {
     themes: {
