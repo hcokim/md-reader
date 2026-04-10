@@ -152,6 +152,22 @@ body[data-theme="mono"] {
   --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
+/* --- Large viewport font scaling --- */
+
+@media (min-width: 1800px) {
+  body[data-theme="github"] { --font-size: 18px; }
+  body[data-theme="serif"]  { --font-size: 20px; }
+  body[data-theme="sans"]   { --font-size: 18px; }
+  body[data-theme="mono"]   { --font-size: 15px; }
+}
+
+@media (min-width: 2200px) {
+  body[data-theme="github"] { --font-size: 20px; }
+  body[data-theme="serif"]  { --font-size: 22px; }
+  body[data-theme="sans"]   { --font-size: 20px; }
+  body[data-theme="mono"]   { --font-size: 16px; }
+}
+
 /* --- Dark mode overrides --- */
 
 body[data-color-mode="dark"][data-theme="github"] {
