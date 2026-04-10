@@ -282,6 +282,25 @@ export function initDropzone(ready: Promise<void>) {
     applyUndoRedoText(file, nextText)
   }
 
+  const handleFullscreen = (e: KeyboardEvent) => {
+    // Ctrl/Cmd + . to toggle fullscreen
+    if (e.key === '.' && (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey) {
+      e.preventDefault()
+      if (document.fullscreenElement) {
+        void document.exitFullscreen()
+      } else {
+        void document.documentElement.requestFullscreen()
+      }
+      return
+    }
+
+    // Escape to exit fullscreen
+    if (e.key === 'Escape' && document.fullscreenElement) {
+      e.preventDefault()
+      void document.exitFullscreen()
+    }
+  }
+
   const handleShortcut = (e: KeyboardEvent) => {
     const hasSidebarContent = sessionFiles.length > 1 || outlineItems.length > 0
     if (!hasSidebarContent) return
@@ -323,6 +342,7 @@ export function initDropzone(ready: Promise<void>) {
   sidebarBackdrop.addEventListener('click', dismissSidebarIfNarrow)
   narrowQuery.addEventListener('change', handleViewportChange)
   wideQuery.addEventListener('change', handleViewportChange)
+  document.addEventListener('keydown', handleFullscreen)
   document.addEventListener('keydown', handleUndoRedo)
   document.addEventListener('keydown', handleShortcut)
 
@@ -350,6 +370,7 @@ export function initDropzone(ready: Promise<void>) {
     saveFileButton.removeEventListener('click', handleSaveClick)
     sidebarBackdrop.removeEventListener('click', dismissSidebarIfNarrow)
     narrowQuery.removeEventListener('change', handleViewportChange)
+    document.removeEventListener('keydown', handleFullscreen)
     document.removeEventListener('keydown', handleUndoRedo)
     document.removeEventListener('keydown', handleShortcut)
     document.removeEventListener('visibilitychange', handleVisibilityChange)
