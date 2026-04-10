@@ -1558,6 +1558,13 @@ body[data-color-mode="dark"] .present-body pre.shiki span {
   justify-content: flex-end;
   padding: 16px;
   box-sizing: border-box;
+  transition: opacity 0.3s ease;
+}
+
+#present-overlay.present-ui-hidden #present-close-zone,
+#present-overlay.present-ui-hidden #present-nav {
+  opacity: 0;
+  pointer-events: none;
 }
 
 #present-close {
@@ -1572,7 +1579,7 @@ body[data-color-mode="dark"] .present-body pre.shiki span {
   align-items: center;
   justify-content: center;
   padding: 0;
-  opacity: 0;
+  opacity: 0.6;
   transition: opacity 0.2s ease, background 0.2s ease, color 0.2s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -1581,12 +1588,8 @@ body[data-color-mode="dark"] .present-body pre.shiki span {
   transition: opacity 0.2s ease, background 0.2s ease, color 0.2s ease, transform 0.1s ease-out;
 }
 
-#present-close-zone:hover #present-close {
-  opacity: 0.6;
-}
-
 #present-close:hover {
-  opacity: 1 !important;
+  opacity: 1;
   background: color-mix(in srgb, var(--fg) 8%, transparent);
   color: var(--fg);
 }
@@ -1606,7 +1609,7 @@ body[data-color-mode="dark"] .present-body pre.shiki span {
   padding: 16px 24px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: transparent;
-  transition: background 0.2s ease;
+  transition: background 0.2s ease, opacity 0.3s ease;
 }
 
 #present-nav:hover {

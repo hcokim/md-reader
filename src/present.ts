@@ -29,6 +29,7 @@ type Slide = {
 let slides: Slide[] = []
 let currentSlide = 0
 let active = false
+let uiHideTimeout: ReturnType<typeof setTimeout> | null = null
 
 export function initPresent() {
   presentToggle.addEventListener('click', enterPresent)
@@ -80,6 +81,24 @@ export function initPresent() {
     }
   }
 
+  const handleScroll = () => {
+    if (!active) return
+    presentOverlay.classList.add('present-ui-hidden')
+    if (uiHideTimeout) clearTimeout(uiHideTimeout)
+    uiHideTimeout = null
+  }
+
+  const handleMouseMove = () => {
+    if (!active) return
+    if (!presentOverlay.classList.contains('present-ui-hidden')) return
+    presentOverlay.classList.remove('present-ui-hidden')
+    if (uiHideTimeout) clearTimeout(uiHideTimeout)
+    uiHideTimeout = null
+  }
+
+  presentOverlay.addEventListener('scroll', handleScroll, { passive: true })
+  presentOverlay.addEventListener('mousemove', handleMouseMove)
+
   document.addEventListener('keydown', handleKey, true)
 
   return () => {
@@ -90,7 +109,10 @@ export function initPresent() {
     presentSidebarBackdrop.removeEventListener('click', closePresentSidebar)
     presentPrevZone.removeEventListener('click', goPrev)
     presentNextZone.removeEventListener('click', goNext)
+    presentOverlay.removeEventListener('scroll', handleScroll)
+    presentOverlay.removeEventListener('mousemove', handleMouseMove)
     document.removeEventListener('keydown', handleKey, true)
+    if (uiHideTimeout) clearTimeout(uiHideTimeout)
   }
 }
 
@@ -254,6 +276,7 @@ function enterPresent() {
   renderSlide()
   presentOverlay.hidden = false
   presentOverlay.classList.remove('hidden')
+  presentOverlay.classList.remove('present-ui-hidden')
   document.body.style.overflow = 'hidden'
 }
 
