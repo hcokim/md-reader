@@ -61,9 +61,8 @@ async function saveSession(handles: FileSystemFileHandle[]) {
     store.put(handles, 'handles')
 
     // Persist scroll positions keyed by file name
-    const scrollParent = content.parentElement
-    if (activeFileId && scrollParent) {
-      scrollPositions.set(activeFileId, scrollParent.scrollTop)
+    if (activeFileId) {
+      scrollPositions.set(activeFileId, window.scrollY)
     }
     const scrollData: Record<string, number> = {}
     for (const file of sessionFiles) {
@@ -733,9 +732,8 @@ async function saveActiveFile() {
 
 function setActiveFile(fileId: string) {
   // Save current scroll position before switching
-  const scrollParent = content.parentElement
-  if (activeFileId && scrollParent) {
-    scrollPositions.set(activeFileId, scrollParent.scrollTop)
+  if (activeFileId) {
+    scrollPositions.set(activeFileId, window.scrollY)
   }
 
   activeFileId = fileId
@@ -750,9 +748,7 @@ function setActiveFile(fileId: string) {
   renderSaveButton()
 
   // Restore saved scroll position, or stay at top for new files
-  if (scrollParent) {
-    scrollParent.scrollTop = scrollPositions.get(fileId) ?? 0
-  }
+  window.scrollTo(0, scrollPositions.get(fileId) ?? 0)
 }
 
 export function getActiveFileText(): string | null {
