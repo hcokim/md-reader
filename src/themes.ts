@@ -1,9 +1,8 @@
-const THEME_KEY = 'md-reader-theme'
-const WIDTH_KEY = 'md-reader-width'
-const COLOR_MODE_KEY = 'md-reader-color-mode'
-
-/** Matches inline boot snippet in index.html — removed once bundled JS restores settings. */
-const THEME_BOOT_CLASS = 'mdr-boot-dark'
+import {
+  THEME_BOOT_CLASS,
+  THEME_DEFAULTS,
+  THEME_STORAGE_KEYS as SK,
+} from './theme-boot.ts'
 
 export type Theme = 'github' | 'serif' | 'sans' | 'mono' | 'miranda'
 export type Width = 'narrow' | 'medium' | 'wide'
@@ -12,15 +11,15 @@ export type ColorMode = 'light' | 'dark' | 'auto'
 const darkMq = window.matchMedia('(prefers-color-scheme: dark)')
 
 export function getTheme(): Theme {
-  return (localStorage.getItem(THEME_KEY) as Theme) || 'github'
+  return (localStorage.getItem(SK.theme) as Theme) || THEME_DEFAULTS.theme
 }
 
 export function getWidth(): Width {
-  return (localStorage.getItem(WIDTH_KEY) as Width) || 'medium'
+  return (localStorage.getItem(SK.width) as Width) || THEME_DEFAULTS.width
 }
 
 export function getColorMode(): ColorMode {
-  return (localStorage.getItem(COLOR_MODE_KEY) as ColorMode) || 'auto'
+  return (localStorage.getItem(SK.colorMode) as ColorMode) || THEME_DEFAULTS.colorMode
 }
 
 function resolveColorMode(mode: ColorMode): 'light' | 'dark' {
@@ -34,6 +33,8 @@ function syncRootSurface() {
   const bg = getComputedStyle(document.body).backgroundColor
   if (bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)') {
     root.style.backgroundColor = bg
+  } else {
+    root.style.removeProperty('background-color')
   }
   const mode = document.body.getAttribute('data-color-mode')
   root.style.colorScheme = mode === 'dark' ? 'dark' : 'light'
@@ -45,18 +46,18 @@ function applyResolvedColorMode(mode: ColorMode) {
 }
 
 export function setTheme(theme: Theme) {
-  localStorage.setItem(THEME_KEY, theme)
+  localStorage.setItem(SK.theme, theme)
   document.body.setAttribute('data-theme', theme)
   syncRootSurface()
 }
 
 export function setWidth(width: Width) {
-  localStorage.setItem(WIDTH_KEY, width)
+  localStorage.setItem(SK.width, width)
   document.body.setAttribute('data-width', width)
 }
 
 export function setColorMode(mode: ColorMode) {
-  localStorage.setItem(COLOR_MODE_KEY, mode)
+  localStorage.setItem(SK.colorMode, mode)
   applyResolvedColorMode(mode)
 }
 

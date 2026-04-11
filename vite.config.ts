@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
+import { generateThemeBootInlineScript } from './src/theme-boot.ts'
 
 function shortCacheVersion(swSource: string, assetPaths: string[]) {
   return createHash('sha256')
@@ -17,6 +18,18 @@ export default defineConfig({
     target: 'esnext',
   },
   plugins: [
+    {
+      name: 'theme-boot-inline',
+      transformIndexHtml(html) {
+        const marker = '<!--theme-boot-->'
+        if (!html.includes(marker)) {
+          this.warn('theme-boot-inline: <!--theme-boot--> marker missing in index.html')
+          return html
+        }
+        const inline = generateThemeBootInlineScript()
+        return html.replace(marker, `<script>${inline}</script>`)
+      },
+    },
     {
       // After Vite writes the bundle, inject precache URLs and a content-derived
       // cache version into dist/sw.js.

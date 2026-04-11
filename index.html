@@ -5,7 +5,7 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>md reader</title>
-    <!-- Block white flash before the Vite module + CSS run; keep keys/theme ids in sync with src/themes.ts -->
+    <!-- Pre-CSS dark canvas: class set by injected boot script (src/theme-boot.ts) -->
     <style>
       html {
         background-color: #ffffff;
@@ -18,52 +18,9 @@
         background-color: var(--mdr-boot-bg, #0d1117);
       }
     </style>
-    <script>
-      (function () {
-        var TK = 'md-reader-theme'
-        var CK = 'md-reader-color-mode'
-        var darkBg = {
-          github: '#0d1117',
-          serif: '#1c1a17',
-          sans: '#111111',
-          mono: '#100f0f',
-          miranda: '#12131a',
-        }
-        function resolve(m) {
-          if (m === 'dark') return 'dark'
-          if (m === 'light') return 'light'
-          return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-        }
-        var theme = localStorage.getItem(TK) || 'github'
-        var colorMode = localStorage.getItem(CK) || 'auto'
-        if (resolve(colorMode) !== 'dark') return
-        var bg = darkBg[theme] || '#0d1117'
-        document.documentElement.classList.add('mdr-boot-dark')
-        document.documentElement.style.setProperty('--mdr-boot-bg', bg)
-      })()
-    </script>
   </head>
   <body>
-    <script>
-      (function () {
-        var TK = 'md-reader-theme'
-        var WK = 'md-reader-width'
-        var CK = 'md-reader-color-mode'
-        function resolve(m) {
-          if (m === 'dark') return 'dark'
-          if (m === 'light') return 'light'
-          return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-        }
-        var theme = localStorage.getItem(TK) || 'github'
-        var width = localStorage.getItem(WK) || 'medium'
-        var colorMode = localStorage.getItem(CK) || 'auto'
-        var resolved = resolve(colorMode)
-        var b = document.body
-        b.setAttribute('data-theme', theme)
-        b.setAttribute('data-width', width)
-        b.setAttribute('data-color-mode', resolved)
-      })()
-    </script>
+    <!--theme-boot-->
 
     <!-- State A: Landing -->
     <div id="landing">
