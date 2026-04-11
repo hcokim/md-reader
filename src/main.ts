@@ -1,3 +1,5 @@
+import 'katex/dist/katex.min.css'
+import './fonts.css'
 import './style.css'
 import { initMarkdown } from './markdown.ts'
 import { initDropzone } from './dropzone.ts'
@@ -20,5 +22,13 @@ if (import.meta.hot) {
     cleanupControls()
     cleanupPresent()
     cleanupTheme()
+  })
+}
+
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => {
+      console.warn('[md-reader] service worker registration failed', err)
+    })
   })
 }
