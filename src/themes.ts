@@ -28,13 +28,26 @@ function resolveColorMode(mode: ColorMode): 'light' | 'dark' {
   return mode
 }
 
+/** Match <html> to the page background so overscroll / rubber-band does not show white. */
+function syncRootSurface() {
+  const root = document.documentElement
+  const bg = getComputedStyle(document.body).backgroundColor
+  if (bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)') {
+    root.style.backgroundColor = bg
+  }
+  const mode = document.body.getAttribute('data-color-mode')
+  root.style.colorScheme = mode === 'dark' ? 'dark' : 'light'
+}
+
 function applyResolvedColorMode(mode: ColorMode) {
   document.body.setAttribute('data-color-mode', resolveColorMode(mode))
+  syncRootSurface()
 }
 
 export function setTheme(theme: Theme) {
   localStorage.setItem(THEME_KEY, theme)
   document.body.setAttribute('data-theme', theme)
+  syncRootSurface()
 }
 
 export function setWidth(width: Width) {
