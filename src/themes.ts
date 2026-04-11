@@ -2,6 +2,9 @@ const THEME_KEY = 'md-reader-theme'
 const WIDTH_KEY = 'md-reader-width'
 const COLOR_MODE_KEY = 'md-reader-color-mode'
 
+/** Matches inline boot snippet in index.html — removed once bundled JS restores settings. */
+const THEME_BOOT_CLASS = 'mdr-boot-dark'
+
 export type Theme = 'github' | 'serif' | 'sans' | 'mono' | 'miranda'
 export type Width = 'narrow' | 'medium' | 'wide'
 export type ColorMode = 'light' | 'dark' | 'auto'
@@ -45,6 +48,9 @@ export function setColorMode(mode: ColorMode) {
 }
 
 export function restoreSettings() {
+  document.documentElement.classList.remove(THEME_BOOT_CLASS)
+  document.documentElement.style.removeProperty('--mdr-boot-bg')
+
   const theme = getTheme()
   const width = getWidth()
   const colorMode = getColorMode()
