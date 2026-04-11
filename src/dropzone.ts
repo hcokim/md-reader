@@ -3,6 +3,7 @@ import { prepareAnnotationBlocks, setActiveAnnotationDocument } from './annotati
 import { registerActiveFileBridge } from './active-file.ts'
 import { deleteMarkdownDocument, setActiveMarkdownDocument, updateMarkdownDocument } from './markdown-state.ts'
 import { rerenderPresentation } from './present.ts'
+import { clearHistory, pushUndoState, redo, undo } from './undo-history.ts'
 
 const landing = document.getElementById('landing')!
 const reader = document.getElementById('reader')!
@@ -56,25 +57,46 @@ async function saveSession(handles: FileSystemFileHandle[]) {
   try {
     const db = await openDb()
     const tx = db.transaction(DB_STORE, 'readwrite')
-    tx.objectStore(DB_STORE).put(handles, 'handles')
+    const store = tx.objectStore(DB_STORE)
+    store.put(handles, 'handles')
+
+    // Persist scroll positions keyed by file name
+    if (activeFileId) {
+      scrollPositions.set(activeFileId, window.scrollY)
+    }
+    const scrollData: Record<string, number> = {}
+    for (const file of sessionFiles) {
+      const pos = scrollPositions.get(file.id)
+      if (pos !== undefined && pos > 0) {
+        scrollData[file.name] = pos
+      }
+    }
+    store.put(scrollData, 'scrollPositions')
+
     db.close()
   } catch {
     // IndexedDB unavailable — ignore
   }
 }
 
-async function loadSession(): Promise<FileSystemFileHandle[]> {
+async function loadSession(): Promise<{ handles: FileSystemFileHandle[], scrollData: Record<string, number> }> {
   try {
     const db = await openDb()
     return new Promise((resolve) => {
       const tx = db.transaction(DB_STORE, 'readonly')
-      const req = tx.objectStore(DB_STORE).get('handles')
-      req.onsuccess = () => resolve(req.result ?? [])
-      req.onerror = () => resolve([])
+      const store = tx.objectStore(DB_STORE)
+      const handlesReq = store.get('handles')
+      const scrollReq = store.get('scrollPositions')
+      let handles: FileSystemFileHandle[] = []
+      let scrollData: Record<string, number> = {}
+      handlesReq.onsuccess = () => { handles = handlesReq.result ?? [] }
+      scrollReq.onsuccess = () => { scrollData = scrollReq.result ?? {} }
+      tx.oncomplete = () => { resolve({ handles, scrollData }) }
+      tx.onerror = () => resolve({ handles: [], scrollData: {} })
       db.close()
     })
   } catch {
-    return []
+    return { handles: [], scrollData: {} }
   }
 }
 
@@ -82,7 +104,9 @@ async function clearSession() {
   try {
     const db = await openDb()
     const tx = db.transaction(DB_STORE, 'readwrite')
-    tx.objectStore(DB_STORE).delete('handles')
+    const store = tx.objectStore(DB_STORE)
+    store.delete('handles')
+    store.delete('scrollPositions')
     db.close()
   } catch {
     // ignore
@@ -92,6 +116,7 @@ async function clearSession() {
 let markdownReady: Promise<void>
 let sessionFiles: SessionFile[] = []
 let activeFileId: string | null = null
+const scrollPositions = new Map<string, number>()
 let outlineItems: OutlineItem[] = []
 let isSidebarCollapsed = false
 let fileCounter = 0
@@ -130,7 +155,7 @@ export function initDropzone(ready: Promise<void>) {
   })
 
   // Check for a restorable session and show the button if available
-  void loadSession().then((handles) => {
+  void loadSession().then(({ handles }) => {
     if (handles.length > 0) {
       restoreBtn.classList.remove('hidden')
       restoreBtn.querySelector('span')!.textContent = 'Restore previous session'
@@ -198,7 +223,7 @@ export function initDropzone(ready: Promise<void>) {
   }
 
   const handleRestore = async () => {
-    const handles = await loadSession()
+    const { handles, scrollData } = await loadSession()
     if (handles.length === 0) return
 
     // Request permission — needs user gesture (this click counts)
@@ -213,7 +238,7 @@ export function initDropzone(ready: Promise<void>) {
     }
 
     if (permitted.length > 0) {
-      void loadFileHandles(permitted)
+      void loadFileHandles(permitted, scrollData)
     } else {
       restoreBtn.querySelector('span')!.textContent = 'Permission denied'
       setTimeout(() => { restoreBtn.classList.add('hidden') }, 2000)
@@ -237,6 +262,45 @@ export function initDropzone(ready: Promise<void>) {
     void saveActiveFile()
   }
 
+  const handleUndoRedo = (e: KeyboardEvent) => {
+    if (!(e.metaKey || e.ctrlKey) || e.altKey) return
+    if (e.key !== 'z' && e.key !== 'Z') return
+    if (isTypingTarget(e.target)) return
+    if (!activeFileId) return
+
+    const file = sessionFiles.find((entry) => entry.id === activeFileId)
+    if (!file) return
+
+    const isRedo = e.shiftKey
+    const nextText = isRedo
+      ? redo(file.id, file.text)
+      : undo(file.id, file.text)
+
+    if (nextText === null) return
+
+    e.preventDefault()
+    applyUndoRedoText(file, nextText)
+  }
+
+  const handleFullscreen = (e: KeyboardEvent) => {
+    // Ctrl/Cmd + . to toggle fullscreen
+    if (e.key === '.' && (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey) {
+      e.preventDefault()
+      if (document.fullscreenElement) {
+        void document.exitFullscreen()
+      } else {
+        void document.documentElement.requestFullscreen()
+      }
+      return
+    }
+
+    // Escape to exit fullscreen
+    if (e.key === 'Escape' && document.fullscreenElement) {
+      e.preventDefault()
+      void document.exitFullscreen()
+    }
+  }
+
   const handleShortcut = (e: KeyboardEvent) => {
     const hasSidebarContent = sessionFiles.length > 1 || outlineItems.length > 0
     if (!hasSidebarContent) return
@@ -255,9 +319,12 @@ export function initDropzone(ready: Promise<void>) {
   }
 
   const narrowQuery = window.matchMedia('(max-width: 900px)')
+  const wideQuery = window.matchMedia('(min-width: 1800px)')
   const handleViewportChange = () => {
     if (narrowQuery.matches && !isSidebarCollapsed) {
       isSidebarCollapsed = true
+    } else if (wideQuery.matches && isSidebarCollapsed) {
+      isSidebarCollapsed = false
     }
     renderSidebar()
   }
@@ -274,7 +341,21 @@ export function initDropzone(ready: Promise<void>) {
   saveFileButton.addEventListener('click', handleSaveClick)
   sidebarBackdrop.addEventListener('click', dismissSidebarIfNarrow)
   narrowQuery.addEventListener('change', handleViewportChange)
+  wideQuery.addEventListener('change', handleViewportChange)
+  document.addEventListener('keydown', handleFullscreen)
+  document.addEventListener('keydown', handleUndoRedo)
   document.addEventListener('keydown', handleShortcut)
+
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'hidden') {
+      const hasHandles = sessionFiles.some((f) => f.handle)
+      if (hasHandles) {
+        const allHandles = sessionFiles.filter((f) => f.handle).map((f) => f.handle!)
+        void saveSession(allHandles)
+      }
+    }
+  }
+  document.addEventListener('visibilitychange', handleVisibilityChange)
 
   return () => {
     openLink.removeEventListener('click', handleOpenClick)
@@ -289,16 +370,21 @@ export function initDropzone(ready: Promise<void>) {
     saveFileButton.removeEventListener('click', handleSaveClick)
     sidebarBackdrop.removeEventListener('click', dismissSidebarIfNarrow)
     narrowQuery.removeEventListener('change', handleViewportChange)
+    document.removeEventListener('keydown', handleFullscreen)
+    document.removeEventListener('keydown', handleUndoRedo)
     document.removeEventListener('keydown', handleShortcut)
+    document.removeEventListener('visibilitychange', handleVisibilityChange)
     if (watchInterval) {
       clearInterval(watchInterval)
       watchInterval = null
     }
     for (const file of sessionFiles) {
       deleteMarkdownDocument(file.id)
+      clearHistory(file.id)
     }
     sessionFiles = []
     activeFileId = null
+    scrollPositions.clear()
   }
 }
 
@@ -332,7 +418,7 @@ async function loadFiles(files: File[]) {
   void clearSession()
 }
 
-async function loadFileHandles(handles: FileSystemFileHandle[]) {
+async function loadFileHandles(handles: FileSystemFileHandle[], restoredScrollData?: Record<string, number>) {
   const readable = handles.filter((h) => isReadableName(h.name))
   if (readable.length === 0) return
 
@@ -356,6 +442,16 @@ async function loadFileHandles(handles: FileSystemFileHandle[]) {
   }
 
   sessionFiles = [...sessionFiles, ...loadedFiles]
+
+  // Restore saved scroll positions from session data (keyed by file name)
+  if (restoredScrollData) {
+    for (const file of loadedFiles) {
+      const pos = restoredScrollData[file.name]
+      if (pos !== undefined && pos > 0) {
+        scrollPositions.set(file.id, pos)
+      }
+    }
+  }
 
   if (sessionFiles.length > 1 && activeFileId !== null) {
     isSidebarCollapsed = false
@@ -656,15 +752,24 @@ async function saveActiveFile() {
 }
 
 function setActiveFile(fileId: string) {
+  // Save current scroll position before switching
+  if (activeFileId) {
+    scrollPositions.set(activeFileId, window.scrollY)
+  }
+
   activeFileId = fileId
   const file = sessionFiles.find((entry) => entry.id === fileId)
   if (!file) return
 
   renderSessionFile(file)
-  isSidebarCollapsed = outlineItems.length <= 5 && sessionFiles.length <= 1
+  const isWideViewport = window.matchMedia('(min-width: 1800px)').matches
+  isSidebarCollapsed = !isWideViewport && outlineItems.length <= 5 && sessionFiles.length <= 1
   showReader(file.name)
   renderSidebar()
   renderSaveButton()
+
+  // Restore saved scroll position, or stay at top for new files
+  window.scrollTo(0, scrollPositions.get(fileId) ?? 0)
 }
 
 export function getActiveFileText(): string | null {
@@ -678,6 +783,7 @@ export function updateActiveFileText(nextText: string): boolean {
   const file = sessionFiles.find((entry) => entry.id === activeFileId)
   if (!file || file.text === nextText) return false
 
+  pushUndoState(file.id, file.text)
   file.text = nextText
   file.isDirty = file.text !== file.savedText
   if (saveButtonFileId === file.id && file.isDirty) {
@@ -697,6 +803,28 @@ export function updateActiveFileText(nextText: string): boolean {
   }
 
   return true
+}
+
+function applyUndoRedoText(file: SessionFile, nextText: string) {
+  if (file.text === nextText) return
+
+  file.text = nextText
+  file.isDirty = file.text !== file.savedText
+  if (saveButtonFileId === file.id && file.isDirty) {
+    resetSaveButtonTransientState()
+  }
+
+  const scrollParent = content.parentElement
+  const scrollPos = scrollParent?.scrollTop ?? 0
+
+  renderSessionFile(file)
+  renderSidebar()
+  rerenderPresentation()
+  renderSaveButton()
+
+  if (scrollParent) {
+    scrollParent.scrollTop = scrollPos
+  }
 }
 
 function renderSessionFile(file: SessionFile) {

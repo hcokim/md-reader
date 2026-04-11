@@ -19,6 +19,7 @@ export type MarkdownBlockKind =
   | 'paragraph'
   | 'code'
   | 'table'
+  | 'table-cell'
   | 'html'
   | 'thematic-break'
 
@@ -190,6 +191,40 @@ export function mapRenderedRangeToSourceRange(
   return { start: sourceStart, end: sourceEnd }
 }
 
+export function mapRenderedRangeToSourceRanges(
+  block: MarkdownBlock,
+  start: number,
+  end: number,
+): { start: number; end: number }[] | null {
+  if (!block.isSourceMappable) return null
+  if (start < 0 || end > block.renderText.length || end <= start) return null
+
+  const startSegmentIndex = findSegmentIndexForRangeBoundary(block.segments, start, 'start')
+  const endSegmentIndex = findSegmentIndexForRangeBoundary(block.segments, end, 'end')
+  if (startSegmentIndex === -1 || endSegmentIndex === -1) return null
+
+  const ranges: { start: number; end: number }[] = []
+  let currentRangeStart = block.segments[startSegmentIndex].sourceStart
+    + (start - block.segments[startSegmentIndex].renderedStart)
+
+  for (let index = startSegmentIndex + 1; index <= endSegmentIndex; index += 1) {
+    if (block.segments[index - 1].sourceEnd !== block.segments[index].sourceStart) {
+      ranges.push({ start: currentRangeStart, end: block.segments[index - 1].sourceEnd })
+      currentRangeStart = block.segments[index].sourceStart
+    }
+  }
+
+  const endSegment = block.segments[endSegmentIndex]
+  const sourceEnd = endSegment.sourceStart + (end - endSegment.renderedStart)
+  ranges.push({ start: currentRangeStart, end: sourceEnd })
+
+  for (const range of ranges) {
+    if (range.end <= range.start) return null
+  }
+
+  return ranges
+}
+
 function visitNode(
   node: MarkdownAstNode,
   path: number[],
@@ -257,6 +292,8 @@ function getBlockKind(type: string): MarkdownBlockKind | null {
       return 'code'
     case 'table':
       return 'table'
+    case 'tableCell':
+      return 'table-cell'
     case 'html':
       return 'html'
     case 'thematicBreak':
@@ -307,7 +344,7 @@ function extractVisibleText(node: MarkdownAstNode): string {
     case 'tableRow':
       return joinChildren(node, ' | ')
     case 'tableCell':
-      return joinChildren(node, ' ')
+      return joinChildren(node, '')
     case 'list':
     case 'listItem':
     case 'blockquote':

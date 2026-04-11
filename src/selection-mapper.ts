@@ -1,5 +1,6 @@
 import {
   mapRenderedRangeToSourceRange,
+  mapRenderedRangeToSourceRanges,
   type MarkdownBlock,
 } from './markdown-model.ts'
 import { getActiveMarkdownDocument } from './markdown-state.ts'
@@ -12,6 +13,7 @@ export type SourceMappedSelection = {
   renderedEndInBlock: number
   sourceStart: number
   sourceEnd: number
+  sourceRanges: { start: number; end: number }[]
 }
 
 export type SourceSelectionFailureReason =
@@ -29,7 +31,7 @@ export type SourceSelectionResult = {
   reason: SourceSelectionFailureReason | null
 }
 
-const SOURCE_BLOCK_SELECTOR = 'h1, h2, h3, h4, h5, h6, p, pre, hr, li'
+const SOURCE_BLOCK_SELECTOR = 'h1, h2, h3, h4, h5, h6, p, pre, hr, li, td, th'
 
 export function prepareSourceMappedBlocks(root: HTMLElement) {
   const document = getActiveMarkdownDocument()
@@ -123,7 +125,24 @@ export function mapRangeToSourceSelectionDetailed(
   }
 
   const sourceRange = mapRenderedRangeToSourceRange(block, renderedStartInBlock, renderedEndInBlock)
-  if (!sourceRange) {
+  if (sourceRange) {
+    return {
+      selection: {
+        block,
+        blockElement: startBlock,
+        quote,
+        renderedStartInBlock,
+        renderedEndInBlock,
+        sourceStart: sourceRange.start,
+        sourceEnd: sourceRange.end,
+        sourceRanges: [sourceRange],
+      },
+      reason: null,
+    }
+  }
+
+  const sourceRanges = mapRenderedRangeToSourceRanges(block, renderedStartInBlock, renderedEndInBlock)
+  if (!sourceRanges || sourceRanges.length === 0) {
     return { selection: null, reason: 'unsupported-source-range' }
   }
 
@@ -134,8 +153,9 @@ export function mapRangeToSourceSelectionDetailed(
       quote,
       renderedStartInBlock,
       renderedEndInBlock,
-      sourceStart: sourceRange.start,
-      sourceEnd: sourceRange.end,
+      sourceStart: sourceRanges[0].start,
+      sourceEnd: sourceRanges[sourceRanges.length - 1].end,
+      sourceRanges,
     },
     reason: null,
   }
@@ -179,6 +199,8 @@ function isCompatibleBlock(element: HTMLElement, block: MarkdownBlock): boolean 
       return tagName === 'P'
     case 'code':
       return tagName === 'PRE'
+    case 'table-cell':
+      return tagName === 'TD' || tagName === 'TH'
     case 'thematic-break':
       return tagName === 'HR'
     default:

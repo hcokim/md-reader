@@ -152,6 +152,46 @@ body[data-theme="mono"] {
   --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
+body[data-theme="miranda"] {
+  --font-body: "Miranda Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-size: 17px;
+  --line-height: 1.65;
+  --letter-spacing: -0.01em;
+  --bg: #f8f9fc;
+  --fg: #1a1d27;
+  --fg-muted: #6b7084;
+  --link: #4361ee;
+  --border: #dfe2ea;
+  --border-heavy: #c8ccd8;
+  --code-bg: #f0f1f6;
+  --code-fg: #1a1d27;
+  --blockquote-border: #c8ccd8;
+  --blockquote-fg: #6b7084;
+  --table-stripe: #f3f4f8;
+  --heading-fg: #0f1119;
+  --controls-bg: #f8f9fc;
+  --controls-border: rgba(0, 0, 0, 0.08);
+  --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* --- Large viewport font scaling --- */
+
+@media (min-width: 1800px) {
+  body[data-theme="github"] { --font-size: 18px; }
+  body[data-theme="serif"]  { --font-size: 20px; }
+  body[data-theme="sans"]   { --font-size: 18px; }
+  body[data-theme="mono"]   { --font-size: 15px; }
+  body[data-theme="miranda"] { --font-size: 19px; }
+}
+
+@media (min-width: 2200px) {
+  body[data-theme="github"] { --font-size: 20px; }
+  body[data-theme="serif"]  { --font-size: 22px; }
+  body[data-theme="sans"]   { --font-size: 20px; }
+  body[data-theme="mono"]   { --font-size: 16px; }
+  body[data-theme="miranda"] { --font-size: 21px; }
+}
+
 /* --- Dark mode overrides --- */
 
 body[data-color-mode="dark"][data-theme="github"] {
@@ -208,6 +248,24 @@ body[data-color-mode="dark"][data-theme="sans"] {
   --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
+body[data-color-mode="dark"][data-theme="miranda"] {
+  --bg: #12131a;
+  --fg: #e2e4ed;
+  --fg-muted: #8e91a4;
+  --link: #7b93f7;
+  --border: #282a36;
+  --border-heavy: #383b4a;
+  --code-bg: #1a1b24;
+  --code-fg: #e2e4ed;
+  --blockquote-border: #383b4a;
+  --blockquote-fg: #8e91a4;
+  --table-stripe: #171822;
+  --heading-fg: #f0f1f7;
+  --controls-bg: #12131a;
+  --controls-border: rgba(255, 255, 255, 0.08);
+  --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
 /* Mono is already dark — make it lighter in light mode */
 body[data-color-mode="light"][data-theme="mono"] {
   --bg: #f5f5f0;
@@ -232,6 +290,18 @@ body[data-color-mode="light"][data-theme="mono"] {
 body[data-width="narrow"] #content { max-width: 640px; }
 body[data-width="medium"] #content { max-width: 800px; }
 body[data-width="wide"]   #content { max-width: 1100px; }
+
+@media (min-width: 1800px) {
+  body[data-width="narrow"] #content { max-width: 720px; }
+  body[data-width="medium"] #content { max-width: 900px; }
+  body[data-width="wide"]   #content { max-width: 1240px; }
+}
+
+@media (min-width: 2200px) {
+  body[data-width="narrow"] #content { max-width: 800px; }
+  body[data-width="medium"] #content { max-width: 1000px; }
+  body[data-width="wide"]   #content { max-width: 1380px; }
+}
 
 /* --- Hidden utility --- */
 
@@ -1488,6 +1558,13 @@ body[data-color-mode="dark"] .present-body pre.shiki span {
   justify-content: flex-end;
   padding: 16px;
   box-sizing: border-box;
+  transition: opacity 0.3s ease;
+}
+
+#present-overlay.present-ui-hidden #present-close-zone,
+#present-overlay.present-ui-hidden #present-nav {
+  opacity: 0;
+  pointer-events: none;
 }
 
 #present-close {
@@ -1502,7 +1579,7 @@ body[data-color-mode="dark"] .present-body pre.shiki span {
   align-items: center;
   justify-content: center;
   padding: 0;
-  opacity: 0;
+  opacity: 0.6;
   transition: opacity 0.2s ease, background 0.2s ease, color 0.2s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -1511,12 +1588,8 @@ body[data-color-mode="dark"] .present-body pre.shiki span {
   transition: opacity 0.2s ease, background 0.2s ease, color 0.2s ease, transform 0.1s ease-out;
 }
 
-#present-close-zone:hover #present-close {
-  opacity: 0.6;
-}
-
 #present-close:hover {
-  opacity: 1 !important;
+  opacity: 1;
   background: color-mix(in srgb, var(--fg) 8%, transparent);
   color: var(--fg);
 }
@@ -1536,7 +1609,7 @@ body[data-color-mode="dark"] .present-body pre.shiki span {
   padding: 16px 24px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: transparent;
-  transition: background 0.2s ease;
+  transition: background 0.2s ease, opacity 0.3s ease;
 }
 
 #present-nav:hover {
