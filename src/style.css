@@ -135,23 +135,24 @@ body[data-theme="sans"] {
   --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
+/* Mono: Flexoki (https://github.com/kepano/flexoki / stephango.com/flexoki) — dark default */
 body[data-theme="mono"] {
-  --font-body: "SF Mono", SFMono-Regular, ui-monospace, Menlo, Consolas, monospace;
+  --font-body: "JetBrains Mono", ui-monospace, monospace;
   --font-size: 14px;
   --line-height: 1.6;
-  --bg: #1d1916;
-  --fg: #d4cdc4;
-  --fg-muted: #958e84;
-  --link: #d4956a;
-  --border: #2e2924;
-  --border-heavy: #3d3630;
-  --code-bg: #14110f;
-  --code-fg: #ddd6cc;
-  --blockquote-border: #3d3630;
-  --blockquote-fg: #958e84;
-  --table-stripe: #221e1a;
-  --heading-fg: #ede7de;
-  --controls-bg: #1d1916;
+  --bg: #100f0f;
+  --fg: #cecdc3;
+  --fg-muted: #878580;
+  --link: #4385be;
+  --border: #343331;
+  --border-heavy: #403e3c;
+  --code-bg: #1c1b1a;
+  --code-fg: #cecdc3;
+  --blockquote-border: #403e3c;
+  --blockquote-fg: #878580;
+  --table-stripe: #1c1b1a;
+  --heading-fg: #fffcf0;
+  --controls-bg: #100f0f;
   --controls-border: rgba(255, 255, 255, 0.08);
   --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
@@ -270,21 +271,21 @@ body[data-color-mode="dark"][data-theme="miranda"] {
   --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-/* Mono is already dark — make it lighter in light mode */
+/* Mono light: Flexoki paper / base scale */
 body[data-color-mode="light"][data-theme="mono"] {
-  --bg: #f5f5f0;
-  --fg: #2a2a3c;
-  --fg-muted: #6e6e82;
-  --link: #2563eb;
-  --border: #d8d8e0;
-  --border-heavy: #c0c0cc;
-  --code-bg: #eaeae4;
-  --code-fg: #2a2a3c;
-  --blockquote-border: #c0c0cc;
-  --blockquote-fg: #6e6e82;
-  --table-stripe: #ededea;
-  --heading-fg: #1a1a2e;
-  --controls-bg: #f5f5f0;
+  --bg: #fffcf0;
+  --fg: #100f0f;
+  --fg-muted: #6f6e69;
+  --link: #205ea6;
+  --border: #dad8ce;
+  --border-heavy: #cecdc3;
+  --code-bg: #f2f0e5;
+  --code-fg: #100f0f;
+  --blockquote-border: #cecdc3;
+  --blockquote-fg: #6f6e69;
+  --table-stripe: #f2f0e5;
+  --heading-fg: #100f0f;
+  --controls-bg: #fffcf0;
   --controls-border: rgba(0, 0, 0, 0.1);
   --controls-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
@@ -1151,6 +1152,10 @@ body.has-save-button #settings-panel {
   border-radius: 4px;
 }
 
+body[data-theme="mono"] #content code {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
 /* Code blocks (shiki) */
 #content pre {
   background: var(--code-bg);
@@ -1497,6 +1502,10 @@ body.has-save-button #present-toggle {
   color: var(--code-fg);
   padding: 0.2em 0.4em;
   border-radius: 4px;
+}
+
+body[data-theme="mono"] .present-body code {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
 }
 
 .present-body pre code {
