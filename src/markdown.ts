@@ -47,6 +47,7 @@ export async function initMarkdown(): Promise<void> {
       import('shiki/langs/diff.mjs'),
       import('shiki/langs/docker.mjs'),
       import('shiki/langs/lua.mjs'),
+      import('shiki/langs/dotenv.mjs'),
     ],
     engine: createOnigurumaEngine(import('shiki/wasm')),
   })
@@ -60,6 +61,16 @@ export async function initMarkdown(): Promise<void> {
     },
     defaultColor: 'light',
   }))
+
+  const fenceLangAliases: Record<string, string> = {
+    env: 'dotenv',
+    '.env': 'dotenv',
+  }
+  const previousHighlight = md.options.highlight
+  md.options.highlight = (code, lang, attrs) => {
+    const mapped = lang ? fenceLangAliases[lang] : undefined
+    return previousHighlight!(code, mapped ?? lang, attrs)
+  }
 
   md.use(texmath, {
     engine: katex,
